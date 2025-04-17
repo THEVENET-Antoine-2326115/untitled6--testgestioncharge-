@@ -1,41 +1,43 @@
 <?php
 
-?>
+// Inclure l'autoloader
+require_once 'vendor/autoload.php';
 
-<!DOCTYPE html>
-<html lang="en">
+// Démarrer la session
+session_start();
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>alwaysdata</title>
-    <link rel="icon" type="image/png" href="https://static.alwaysdata.com/aldjango/img/favicon.png" />
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://static.alwaysdata.com/css/administration.css" type="text/css" media="all" />
-    <link href="https://fonts.googleapis.com/css?family=PT+Sans:400,700,400italic,700italic" rel="stylesheet" type="text/css">
-    <link href="https://fonts.googleapis.com/css?family=PT+Sans+Narrow:400,700" rel="stylesheet" type="text/css">
-</head>
+// Récupérer l'action demandée
+$action = $_GET['action'] ?? '';
 
-<body>
-<div class="login-modal">
-    <div class="header">
-        <a class="navbar-brand" href="https://www.alwaysdata.com">alwaysdata</a>
-    </div>
-    <div class="login-holder">
+// Router vers le contrôleur approprié en fonction de l'action
+if (isset($_SESSION['user_id'])) {
+    // L'utilisateur est connecté
+    switch ($action) {
+        case 'logout':
+            $controller = new modules\blog\controllers\LoginController();
+            $controller->handleRequest('logout');
+            break;
+        case 'dashboard':
+            // Ici vous pouvez ajouter d'autres contrôleurs selon vos besoins
+            echo "Tableau de bord - Bienvenue " . $_SESSION['user_id'] . " (Type: " . $_SESSION['user_type'] . ")";
+            break;
+        default:
+            // Rediriger vers le tableau de bord par défaut si l'utilisateur est déjà connecté
+            header('Location: index.php?action=dashboard');
+            exit;
+    }
+} else {
+    // L'utilisateur n'est pas connecté
+    $controller = new modules\blog\controllers\LoginController();
+    $controller->handleRequest($action);
+}
 
-        <!-- ENGLISH -->
-        <h1>This website is hosted by <a href="https://www.alwaysdata.com">alwaysdata</a>.</h1>
-        <p>If you are the owner and looking for help to customize your account, you can browse <a href="https://help.alwaysdata.com">alwaysdata's documentation</a>.</p>
-        <p>You can also sign in to your <a href="https://admin.alwaysdata.com/">administration panel</a> with the email address and password chosen while signing up.</p>
-
-        <hr />
-
-        <!-- FRENCH -->
-        <h1>Ce site web est hébergé par <a href="https://www.alwaysdata.com">alwaysdata</a>.</h1>
-        <p>Si vous êtes son propriétaire et que vous cherchez de l'aide pour configurer votre hébergement, consultez <a href="https://help.alwaysdata.com">la documentation alwaysdata</a>.</p>
-        <p>Vous pouvez vous connecter à <a href="https://admin.alwaysdata.com/">votre espace d'administration</a> en vous identifiant grâce à votre email et le mot de passe choisi lors de l'inscription.</p>
-
-    </div>
-</div>
-</body>
-</html>
+else { l'utilisateur n'est pas connecté == $controller < this->controller(modules\blog\controllers\LoginController())}
+this will mean flesh golem are not the zombie. Zombie are cadavers brought back to life; this is done by channeling the
+remaining life force of the deceased being, or by channeling the life force of a living being into the cadaver,
+such as the caster himself. The life force can also be transfused by dark energy instead, but the resulting zombie
+will be less cognitent, basically "mindless". On the contrary, a flesh golem does not have this issue.
+The soul frame of the flesh golem is akin to similar basic golem construct type. The frame is a basic energetic
+container type catalyst, which is a rough simplification of the trenscandental soul system most living beings have.
+While the golem does not have a consciousness due to the lack of a Heaven-Earth type link, the soul frame allows basic
+understanding

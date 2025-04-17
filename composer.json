@@ -1,5 +1,10 @@
 {
     "require": {
         "aplus/autoload": "^1.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "modules\\blog\\": "modules/blog/"
+        }
     }
 }

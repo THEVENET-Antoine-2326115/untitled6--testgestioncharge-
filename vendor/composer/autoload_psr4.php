@@ -6,5 +6,9 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'modules\\blog\\views\\' => array($baseDir . '/modules/blog/views'),
+    'modules\\blog\\models\\' => array($baseDir . '/modules/blog/models'),
+    'modules\\blog\\controllers\\' => array($baseDir . '/modules/blog/controllers'),
+    'modules\\blog\\' => array($baseDir . '/modules/blog'),
     'Framework\\Autoload\\' => array($vendorDir . '/aplus/autoload/src'),
 );

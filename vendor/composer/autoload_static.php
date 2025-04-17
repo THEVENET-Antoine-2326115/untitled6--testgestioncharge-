@@ -7,6 +7,13 @@ namespace Composer\Autoload;
 class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
 {
     public static $prefixLengthsPsr4 = array (
+        'm' => 
+        array (
+            'modules\\blog\\views\\' => 19,
+            'modules\\blog\\models\\' => 20,
+            'modules\\blog\\controllers\\' => 25,
+            'modules\\blog\\' => 13,
+        ),
         'F' => 
         array (
             'Framework\\Autoload\\' => 19,
@@ -14,6 +21,22 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
     );
 
     public static $prefixDirsPsr4 = array (
+        'modules\\blog\\views\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/modules/blog/views',
+        ),
+        'modules\\blog\\models\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/modules/blog/models',
+        ),
+        'modules\\blog\\controllers\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/modules/blog/controllers',
+        ),
+        'modules\\blog\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/modules/blog',
+        ),
         'Framework\\Autoload\\' => 
         array (
             0 => __DIR__ . '/..' . '/aplus/autoload/src',

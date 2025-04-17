@@ -1,5 +1,5 @@
 <?php
-namespace models;
+namespace blog\models;
 use PDO;
 use PDOException;
 
@@ -28,7 +28,7 @@ class LoginModel {
     /**
      * Tester le mot de passe
      *
-     * Vérifie si l'utilisateur existe et si le mot de passe correspond.
+     * Vérifie si l'utilisateur (util ou admin) existe et si le mot de passe correspond.
      *
      * @param string $identifiant Identifiant de l'utilisateur
      * @param string $password Mot de passe de l'utilisateur
@@ -36,16 +36,31 @@ class LoginModel {
      */
     public function test_Pass($identifiant, $password)
     {
-        $stmt = $this->db->prepare("SELECT * FROM Utilisateur WHERE Identifiant = :Identifiant");
-        $stmt->bindParam(':Identifiant', $identifiant);
+        // Vérifier d'abord si c'est un utilisateur normal
+        $stmt = $this->db->prepare("SELECT * FROM Utilisateur WHERE id_util = :identifiant");
+        $stmt->bindParam(':identifiant', $identifiant);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Vérifie si l'utilisateur existe et si le mot de passe correspond
-        if ($result && password_verify($password, $result['Password'])) {
+        // Si utilisateur trouvé et mot de passe correct
+        if ($result && password_verify($password, $result['mdp'])) {
+            $result['type'] = 'utilisateur'; // Ajouter un type pour différencier
             return $result;
         }
 
+        // Si ce n'est pas un utilisateur normal, vérifier si c'est un admin
+        $stmt = $this->db->prepare("SELECT * FROM Utilisateur WHERE id_admin = :identifiant");
+        $stmt->bindParam(':identifiant', $identifiant);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Si admin trouvé et mot de passe correct
+        if ($result && password_verify($password, $result['mdp'])) {
+            $result['type'] = 'admin'; // Ajouter un type pour différencier
+            return $result;
+        }
+
+        // Aucune correspondance trouvée
         return false;
     }
 }
