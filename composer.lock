@@ -1,0 +1,88 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "7b31c96babaf80e0aece46bed3c76e09",
+    "packages": [
+        {
+            "name": "aplus/autoload",
+            "version": "v1.7.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/aplus-framework/autoload.git",
+                "reference": "4ee2d29b809b13957cbbee99a2bfbadfd6d4db8b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/aplus-framework/autoload/zipball/4ee2d29b809b13957cbbee99a2bfbadfd6d4db8b",
+                "reference": "4ee2d29b809b13957cbbee99a2bfbadfd6d4db8b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0"
+            },
+            "require-dev": {
+                "aplus/coding-standard": "^1.9",
+                "aplus/helpers": "^2.2",
+                "ergebnis/composer-normalize": "^2.13",
+                "ext-xdebug": "*",
+                "jetbrains/phpstorm-attributes": "^1.0",
+                "phpmd/phpmd": "^2.10",
+                "phpstan/phpstan": "^0.12",
+                "phpunit/phpunit": "^9.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Framework\\Autoload\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Natan Felles",
+                    "email": "natanfelles@gmail.com",
+                    "homepage": "https://natanfelles.github.io"
+                }
+            ],
+            "description": "Aplus Framework Autoload Library",
+            "homepage": "https://aplus-framework.com/packages/autoload",
+            "keywords": [
+                "autoload",
+                "autoloader",
+                "class-locator",
+                "file-locator",
+                "loader",
+                "locator"
+            ],
+            "support": {
+                "docs": "https://docs.aplus-framework.com/guides/libraries/autoload/",
+                "email": "support@aplus-framework.com",
+                "forum": "https://aplus-framework.com/forum",
+                "issues": "https://gitlab.com/aplus-framework/libraries/autoload/issues",
+                "source": "https://gitlab.com/aplus-framework/libraries/autoload"
+            },
+            "funding": [
+                {
+                    "url": "https://aplus-framework.com/sponsor",
+                    "type": "Aplus Sponsor"
+                }
+            ],
+            "time": "2021-12-25T21:09:18+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.6.0"
+}

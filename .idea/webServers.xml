@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="673df827-ea7f-40eb-9165-d3d1f5a4810f" name="mosca" url="https://thevenaut.alwaysdata.net/">
+        <fileTransfer rootFolder="/home/thevenaut" accessType="SFTP" host="ssh-thevenaut.alwaysdata.net" port="22" sshConfigId="b8e221e8-8ac7-4926-8c04-d2fd96f97ba0" sshConfig="thevenaut@ssh-thevenaut.alwaysdata.net:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

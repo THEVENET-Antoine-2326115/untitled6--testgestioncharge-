@@ -1,0 +1,5 @@
+{
+    "require": {
+        "aplus/autoload": "^1.7"
+    }
+}
