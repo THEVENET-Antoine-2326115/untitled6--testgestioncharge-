@@ -1,5 +1,5 @@
 <?php
-namespace blog\views;
+namespace modules\blog\views;
 
 /**
  * Classe LoginView
@@ -25,8 +25,18 @@ class LoginView {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Connexion</title>
             <link rel="stylesheet" href="assets/css/login.css">
+
+            <body>
+        <header>
+        </header>
+        </body>
+
         </head>
         <body>
+        <div>
+            <img href="https://www.groupe-moscatelli.com" alt="logo" class="logo">
+            <h1><gr>Moscatelli, leader mondial</gr></h1>
+        </div>
         <div class="login-container">
             <h2>Connexion</h2>
 
@@ -44,7 +54,6 @@ class LoginView {
                     <label for="password">Mot de passe:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-
                 <button type="submit">Se connecter</button>
             </form>
         </div>

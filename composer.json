@@ -1,10 +1,12 @@
 {
     "require": {
-        "aplus/autoload": "^1.7"
+        "aplus/autoload": "^1.7",
+      "ext-pdo": "*"
     },
     "autoload": {
         "psr-4": {
-            "modules\\blog\\": "modules/blog/"
+            "modules\\blog\\": "modules/blog/",
+            "_assets\\": "_assets/"
         }
     }
 }

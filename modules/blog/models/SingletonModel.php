@@ -1,6 +1,6 @@
 <?php
 
-namespace models;
+namespace modules\blog\models;
 
 use _assets\config\Config;
 use PDO;

@@ -1,5 +1,5 @@
 <?php
-namespace blog\models;
+namespace modules\blog\models;
 use PDO;
 use PDOException;
 

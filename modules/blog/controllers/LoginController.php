@@ -1,8 +1,8 @@
 <?php
-namespace blog\controllers;
+namespace modules\blog\controllers;
 
-use blog\models\LoginModel;
-use blog\views\LoginView;
+use modules\blog\models\LoginModel;
+use modules\blog\views\LoginView;
 
 
 /**
