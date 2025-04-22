@@ -37,7 +37,7 @@ class LoginModel {
     public function test_Pass($identifiant, $password)
     {
         // Vérifier d'abord si c'est un utilisateur normal
-        $stmt = $this->db->prepare("SELECT * FROM Utilisateur WHERE id_util = :identifiant");
+        $stmt = $this->db->prepare("SELECT * FROM Utilisateurs WHERE id_util = :identifiant");
         $stmt->bindParam(':identifiant', $identifiant);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -49,7 +49,7 @@ class LoginModel {
         }
 
         // Si ce n'est pas un utilisateur normal, vérifier si c'est un admin
-        $stmt = $this->db->prepare("SELECT * FROM Utilisateur WHERE id_admin = :identifiant");
+        $stmt = $this->db->prepare("SELECT * FROM Utilisateurs WHERE id_admin = :identifiant");
         $stmt->bindParam(':identifiant', $identifiant);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);

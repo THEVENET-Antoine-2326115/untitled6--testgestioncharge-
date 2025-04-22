@@ -34,7 +34,8 @@ class LoginView {
         </head>
         <body>
         <div>
-            <img href="https://www.groupe-moscatelli.com" alt="logo" class="logo">
+            <img href="
+" alt="logo" class="logo">
             <h1><gr>Moscatelli, leader mondial</gr></h1>
         </div>
         <div class="login-container">

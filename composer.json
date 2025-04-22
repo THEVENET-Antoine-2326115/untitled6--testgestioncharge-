@@ -1,6 +1,6 @@
 {
     "require": {
-        "aplus/autoload": "^1.7",
+        "aplus/autoload": "^1.0.0",
       "ext-pdo": "*"
     },
     "autoload": {

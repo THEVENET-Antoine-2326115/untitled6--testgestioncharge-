@@ -7,6 +7,11 @@
       </laravel_pint_by_interpreter>
     </laravel_pint_settings>
   </component>
+  <component name="MessDetector">
+    <phpmd_settings>
+      <phpmd_by_interpreter asDefaultInterpreter="true" interpreter_id="1ceb7159-ca34-479b-b7c0-456bb6c67fc8" timeout="30000" />
+    </phpmd_settings>
+  </component>
   <component name="MessDetectorOptionsConfiguration">
     <option name="transferred" value="true" />
   </component>
@@ -19,7 +24,7 @@
   </component>
   <component name="PhpCodeSniffer">
     <phpcs_settings>
-      <phpcs_by_interpreter asDefaultInterpreter="true" interpreter_id="9941a9e6-15a6-47ef-9746-ead08ed65921" timeout="30000" />
+      <phpcs_by_interpreter asDefaultInterpreter="true" interpreter_id="1ceb7159-ca34-479b-b7c0-456bb6c67fc8" timeout="30000" />
     </phpcs_settings>
   </component>
   <component name="PhpIncludePathManager">
@@ -28,7 +33,7 @@
       <path value="$PROJECT_DIR$/vendor/aplus/autoload" />
     </include_path>
   </component>
-  <component name="PhpProjectSharedConfiguration" php_language_level="8.4" />
+  <component name="PhpProjectSharedConfiguration" php_language_level="7.2" />
   <component name="PhpStan">
     <PhpStan_settings>
       <phpstan_by_interpreter asDefaultInterpreter="true" interpreter_id="9941a9e6-15a6-47ef-9746-ead08ed65921" timeout="60000" />
