@@ -19,6 +19,10 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         array (
             'Framework\\Autoload\\' => 19,
         ),
+        'B' => 
+        array (
+            'Box\\Spout\\' => 10,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -33,6 +37,10 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         'Framework\\Autoload\\' => 
         array (
             0 => __DIR__ . '/..' . '/aplus/autoload/src',
+        ),
+        'Box\\Spout\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/box/spout/src/Spout',
         ),
     );
 

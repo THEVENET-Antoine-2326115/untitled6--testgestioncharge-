@@ -6,6 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/modules/blog" isTestSource="false" packagePrefix="modules\blog\" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/aplus/autoload" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/composer" />
+      <excludeFolder url="file://$MODULE_DIR$/vendor/box/spout" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
