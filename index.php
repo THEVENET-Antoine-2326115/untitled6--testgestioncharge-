@@ -6,29 +6,27 @@ require_once 'vendor/autoload.php';
 // Démarrer la session
 session_start();
 
+// Désactiver l'affichage des messages d'erreur de type deprecated
+error_reporting(E_ALL & ~E_DEPRECATED);
+
+// Pour ignorer la partie connexion, on simule un utilisateur connecté
+if (!isset($_SESSION['user_id'])) {
+    $_SESSION['user_id'] = 'test_user';
+}
+
 // Récupérer l'action demandée
 $action = $_GET['action'] ?? '';
 
 // Router vers le contrôleur approprié en fonction de l'action
-if (isset($_SESSION['user_id'])) {
-    // L'utilisateur est connecté
-    switch ($action) {
-        case 'logout':
-            $controller = new modules\blog\controllers\LoginController();
-            $controller->handleRequest('logout');
-            break;
-        case 'dashboard':
-            // Ici vous pouvez ajouter d'autres contrôleurs selon vos besoins
-            echo "Tableau de bord - Bienvenue " . $_SESSION['user_id'] . " (Type: " . $_SESSION['user_type'] . ")";
-            break;
-        default:
-            // Rediriger vers le tableau de bord par défaut si l'utilisateur est déjà connecté
-            header('Location: index.php?action=dashboard');
-            exit;
-    }
-} else {
-    // L'utilisateur n'est pas connecté
-    $controller = new modules\blog\controllers\LoginController();
-    $controller->handleRequest($action);
+switch ($action) {
+    case 'logout':
+        // Déconnexion - simplement pour maintenir la fonctionnalité
+        session_destroy();
+        header('Location: index.php');
+        exit;
+    default:
+        // Afficher le tableau de bord avec les données Excel par défaut
+        $controller = new modules\blog\controllers\DashboardController();
+        $controller->handleRequest();
+        break;
 }
-
