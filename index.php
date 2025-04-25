@@ -19,13 +19,18 @@ $action = $_GET['action'] ?? '';
 
 // Router vers le contrôleur approprié en fonction de l'action
 switch ($action) {
+    case 'analyse-charge':
+        // Afficher l'analyse de charge
+        $controller = new modules\blog\controllers\ChargeController();
+        $controller->handleRequest();
+        break;
     case 'logout':
-        // Déconnexion - simplement pour maintenir la fonctionnalité
+        // Déconnexion
         session_destroy();
         header('Location: index.php');
         exit;
     default:
-        // Afficher le tableau de bord avec les données Excel par défaut
+        // Afficher le tableau de bord par défaut
         $controller = new modules\blog\controllers\DashboardController();
         $controller->handleRequest();
         break;

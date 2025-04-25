@@ -27,6 +27,7 @@ class DashboardView {
         <body>
         <div class="navbar">
             <a href="index.php?action=dashboard">Tableau de bord</a>
+            <a href="index.php?action=analyse-charge">Analyse de Charge</a>
             <a href="index.php?action=logout">Déconnexion</a>
         </div>
 
@@ -65,6 +66,7 @@ class DashboardView {
         <body>
         <div class="navbar">
             <a href="index.php?action=dashboard">Tableau de bord</a>
+            <a href="index.php?action=analyse-charge">Analyse de Charge</a>
             <a href="index.php?action=logout">Déconnexion</a>
         </div>
 
@@ -72,6 +74,23 @@ class DashboardView {
             <div class="card">
                 <h1>Tableau de bord - Gestion de Charge</h1>
                 <p>Bienvenue <?php echo htmlspecialchars($userInfo['nom']); ?></p>
+
+                <div class="menu-items">
+                    <div class="menu-item">
+                        <a href="index.php?action=dashboard">
+                            <div class="icon">📊</div>
+                            <h3>Visualiser les données</h3>
+                            <p>Consulter les données brutes du fichier Excel</p>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a href="index.php?action=analyse-charge">
+                            <div class="icon">📈</div>
+                            <h3>Analyse de charge</h3>
+                            <p>Analyser la répartition de charge par période</p>
+                        </a>
+                    </div>
+                </div>
 
                 <div class="excel-container">
                     <h2>Fichier: <?php echo htmlspecialchars($fileName); ?></h2>
