@@ -23,6 +23,7 @@ class ChargeView {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Erreur - Analyse de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
+            <link rel="stylesheet" href="_assets/css/charge.css">
         </head>
         <body>
         <div class="navbar">
@@ -62,6 +63,7 @@ class ChargeView {
             <title>Analyse de Charge - Gestion de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
             <link rel="stylesheet" href="_assets/css/excel.css">
+            <link rel="stylesheet" href="_assets/css/charge.css">
         </head>
         <body>
         <div class="navbar">

@@ -245,8 +245,15 @@ class ChargeModel {
             // Préparer les processus pour l'affichage
             $processusTexte = '';
             if (!empty($jour['processus'])) {
+                // Extraire uniquement les valeurs uniques de processus (sans doublons)
                 $processusUniques = array_unique(array_values($jour['processus']));
-                $processusTexte = implode('', $processusUniques);
+
+                // Filtrer les valeurs vides
+                $processusUniques = array_filter($processusUniques, function($val) {
+                    return !empty($val);
+                });
+
+                $processusTexte = implode(', ', $processusUniques);
             }
 
             // Déterminer l'affichage en fonction du type de jour
@@ -254,7 +261,7 @@ class ChargeModel {
                 // Week-end - pas de charge
                 $donneesMois[] = [
                     'date' => $date->format('d/m/Y'),
-                    'charge' => '0%',
+                    'charge' => '0',
                     'taches' => '',
                     'processus' => '',
                     'surcharge' => false,
@@ -266,7 +273,7 @@ class ChargeModel {
                 // Jour de semaine - afficher la charge et les tâches
                 $donneesMois[] = [
                     'date' => $date->format('d/m/Y'),
-                    'charge' => number_format($jour['charge'] * 100, 0) . '%',
+                    'charge' => number_format($jour['charge'], 2),
                     'taches' => implode(', ', $jour['taches']),
                     'processus' => $processusTexte,
                     'surcharge' => $jour['surcharge'],
@@ -286,7 +293,7 @@ class ChargeModel {
         foreach ($resultatAnalyse['periodesSurcharge'] as $jour) {
             $surcharges[] = [
                 'date' => $jour['date']->format('d/m/Y'),
-                'charge' => number_format($jour['charge'] * 100, 0) . '%',
+                'charge' => number_format($jour['charge'], 2),
                 'taches' => implode(', ', $jour['taches'])
             ];
         }
@@ -297,7 +304,7 @@ class ChargeModel {
             foreach ($resultatAnalyse['periodesChargePleine'] as $jour) {
                 $chargesPleine[] = [
                     'date' => $jour['date']->format('d/m/Y'),
-                    'charge' => number_format($jour['charge'] * 100, 0) . '%',
+                    'charge' => number_format($jour['charge'], 2),
                     'taches' => implode(', ', $jour['taches'])
                 ];
             }
