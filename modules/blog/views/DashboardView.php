@@ -62,6 +62,24 @@ class DashboardView {
             <title>Tableau de bord - Gestion de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
             <link rel="stylesheet" href="_assets/css/excel.css">
+            <style>
+                .toggle-button {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 10px 15px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-bottom: 10px;
+                    font-size: 14px;
+                }
+                .toggle-button:hover {
+                    background-color: #45a049;
+                }
+                .hidden {
+                    display: none;
+                }
+            </style>
         </head>
         <body>
         <div class="navbar">
@@ -94,43 +112,63 @@ class DashboardView {
 
                 <div class="excel-container">
                     <h2>Fichier: <?php echo htmlspecialchars($fileName); ?></h2>
+                    <button class="toggle-button" id="toggleData">Afficher les données brutes</button>
 
-                    <?php if (empty($excelData)): ?>
-                        <p>Aucune donnée trouvée dans ce fichier.</p>
-                    <?php else: ?>
-                        <?php foreach ($excelData as $sheetName => $sheetData): ?>
-                            <div class="sheet">
-                                <h3>Feuille: <?php echo htmlspecialchars($sheetName); ?></h3>
+                    <div id="rawDataContainer" class="hidden">
+                        <?php if (empty($excelData)): ?>
+                            <p>Aucune donnée trouvée dans ce fichier.</p>
+                        <?php else: ?>
+                            <?php foreach ($excelData as $sheetName => $sheetData): ?>
+                                <div class="sheet">
+                                    <h3>Feuille: <?php echo htmlspecialchars($sheetName); ?></h3>
 
-                                <?php if (empty($sheetData['rows'])): ?>
-                                    <p>Aucune donnée dans cette feuille.</p>
-                                <?php else: ?>
-                                    <div class="table-container">
-                                        <table>
-                                            <thead>
-                                            <tr>
-                                                <?php foreach ($sheetData['headers'] as $header): ?>
-                                                    <th><?php echo htmlspecialchars($header); ?></th>
-                                                <?php endforeach; ?>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <?php foreach ($sheetData['rows'] as $row): ?>
+                                    <?php if (empty($sheetData['rows'])): ?>
+                                        <p>Aucune donnée dans cette feuille.</p>
+                                    <?php else: ?>
+                                        <div class="table-container">
+                                            <table>
+                                                <thead>
                                                 <tr>
                                                     <?php foreach ($sheetData['headers'] as $header): ?>
-                                                        <td>
-                                                            <?php echo isset($row[$header]) ? (is_string($row[$header]) ? htmlspecialchars($row[$header]) : $row[$header]) : ''; ?>
-                                                        </td>
+                                                        <th><?php echo htmlspecialchars($header); ?></th>
                                                     <?php endforeach; ?>
                                                 </tr>
-                                            <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                                                </thead>
+                                                <tbody>
+                                                <?php foreach ($sheetData['rows'] as $row): ?>
+                                                    <tr>
+                                                        <?php foreach ($sheetData['headers'] as $header): ?>
+                                                            <td>
+                                                                <?php echo isset($row[$header]) ? (is_string($row[$header]) ? htmlspecialchars($row[$header]) : $row[$header]) : ''; ?>
+                                                            </td>
+                                                        <?php endforeach; ?>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const toggleButton = document.getElementById('toggleData');
+                            const dataContainer = document.getElementById('rawDataContainer');
+
+                            toggleButton.addEventListener('click', function() {
+                                if (dataContainer.classList.contains('hidden')) {
+                                    dataContainer.classList.remove('hidden');
+                                    toggleButton.textContent = 'Masquer les données brutes';
+                                } else {
+                                    dataContainer.classList.add('hidden');
+                                    toggleButton.textContent = 'Afficher les données brutes';
+                                }
+                            });
+                        });
+                    </script>
                 </div>
             </div>
         </div>
