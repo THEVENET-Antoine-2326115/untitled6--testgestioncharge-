@@ -49,9 +49,11 @@ class DashboardView {
      * @param array $userInfo Informations de l'utilisateur
      * @param string $fileName Nom du fichier Excel
      * @param array $excelData Données du fichier Excel
+     * @param array $importedData Données déjà importées dans la base de données (non utilisé)
+     * @param array|null $importResult Résultat de l'importation (facultatif)
      * @return string Le contenu HTML généré
      */
-    public function showDashboardWithExcel($userInfo, $fileName, $excelData) {
+    public function showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData = [], $importResult = null) {
         ob_start();
         ?>
         <!DOCTYPE html>
@@ -78,6 +80,32 @@ class DashboardView {
                 }
                 .hidden {
                     display: none;
+                }
+                .import-actions {
+                    margin: 20px 0;
+                    display: flex;
+                    gap: 10px;
+                }
+                .btn-import {
+                    background-color: #4CAF50;
+                }
+                .btn-clear {
+                    background-color: #f44336;
+                }
+                .result-box {
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 4px;
+                }
+                .result-success {
+                    background-color: #d4edda;
+                    border-color: #c3e6cb;
+                    color: #155724;
+                }
+                .result-error {
+                    background-color: #f8d7da;
+                    border-color: #f5c2c7;
+                    color: #721c24;
                 }
             </style>
         </head>
@@ -106,6 +134,26 @@ class DashboardView {
                             <div class="icon">📈</div>
                             <h3>Analyse de charge</h3>
                             <p>Analyser la répartition de charge par période</p>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Section d'importation -->
+                <div class="import-section">
+                    <h2>Importation des données</h2>
+
+                    <?php if ($importResult): ?>
+                        <div class="result-box <?php echo $importResult['success'] ? 'result-success' : 'result-error'; ?>">
+                            <?php echo htmlspecialchars($importResult['message']); ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="import-actions">
+                        <a href="index.php?action=dashboard&subaction=import" class="btn-import" onclick="return confirm('Êtes-vous sûr de vouloir importer les données?')">
+                            <button>Importer les données vers la base</button>
+                        </a>
+                        <a href="index.php?action=dashboard&subaction=clear_data" class="btn-clear" onclick="return confirm('Attention! Cette action supprimera toutes les données importées. Continuer?')">
+                            <button>Vider la table de données</button>
                         </a>
                     </div>
                 </div>
