@@ -24,6 +24,11 @@ switch ($action) {
         $controller = new modules\blog\controllers\ChargeController();
         $controller->handleRequest();
         break;
+    case 'process-mpp-files':
+        // Traitement automatique des fichiers MPP
+        $controller = new modules\blog\controllers\MppProcessorController();
+        $controller->handleRequest();
+        break;
     case 'logout':
         // Déconnexion
         session_destroy();

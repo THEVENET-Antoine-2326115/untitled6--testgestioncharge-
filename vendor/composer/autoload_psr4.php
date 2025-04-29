@@ -8,7 +8,13 @@ $baseDir = dirname($vendorDir);
 return array(
     'modules\\blog\\' => array($baseDir . '/modules/blog'),
     '_assets\\' => array($baseDir . '/_assets'),
+    'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-message/src', $vendorDir . '/psr/http-factory/src'),
+    'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'PhpOffice\\PhpProject\\' => array($vendorDir . '/phpoffice/phpproject/src/PhpProject'),
+    'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
+    'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
+    'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
+    'GroupDocs\\Conversion\\' => array($vendorDir . '/groupdocscloud/groupdocs-conversion-cloud/src'),
     'Framework\\Autoload\\' => array($vendorDir . '/aplus/autoload/src'),
     'Box\\Spout\\' => array($vendorDir . '/box/spout/src/Spout'),
 );

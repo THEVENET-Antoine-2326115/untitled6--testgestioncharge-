@@ -3,7 +3,8 @@
         "aplus/autoload": "^1.0.0",
       "ext-pdo": "*",
         "box/spout": "^3.3",
-        "phpoffice/phpproject": "^0.2.0"
+        "phpoffice/phpproject": "^0.2.0",
+        "groupdocscloud/groupdocs-conversion-cloud": "^25.4"
     },
     "autoload": {
         "psr-4": {
