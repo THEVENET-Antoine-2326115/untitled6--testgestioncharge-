@@ -8,6 +8,7 @@ $baseDir = dirname($vendorDir);
 return array(
     'modules\\blog\\' => array($baseDir . '/modules/blog'),
     '_assets\\' => array($baseDir . '/_assets'),
+    'PhpOffice\\PhpProject\\' => array($vendorDir . '/phpoffice/phpproject/src/PhpProject'),
     'Framework\\Autoload\\' => array($vendorDir . '/aplus/autoload/src'),
     'Box\\Spout\\' => array($vendorDir . '/box/spout/src/Spout'),
 );

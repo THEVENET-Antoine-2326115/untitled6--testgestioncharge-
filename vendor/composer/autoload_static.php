@@ -15,6 +15,10 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         array (
             '_assets\\' => 8,
         ),
+        'P' => 
+        array (
+            'PhpOffice\\PhpProject\\' => 21,
+        ),
         'F' => 
         array (
             'Framework\\Autoload\\' => 19,
@@ -34,6 +38,10 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         array (
             0 => __DIR__ . '/../..' . '/_assets',
         ),
+        'PhpOffice\\PhpProject\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpoffice/phpproject/src/PhpProject',
+        ),
         'Framework\\Autoload\\' => 
         array (
             0 => __DIR__ . '/..' . '/aplus/autoload/src',
@@ -41,6 +49,16 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         'Box\\Spout\\' => 
         array (
             0 => __DIR__ . '/..' . '/box/spout/src/Spout',
+        ),
+    );
+
+    public static $prefixesPsr0 = array (
+        'P' => 
+        array (
+            'PHPProject' => 
+            array (
+                0 => __DIR__ . '/..' . '/phpoffice/phpproject/src',
+            ),
         ),
     );
 
@@ -53,6 +71,7 @@ class ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41
         return \Closure::bind(function () use ($loader) {
             $loader->prefixLengthsPsr4 = ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41::$prefixLengthsPsr4;
             $loader->prefixDirsPsr4 = ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41::$prefixDirsPsr4;
+            $loader->prefixesPsr0 = ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41::$prefixesPsr0;
             $loader->classMap = ComposerStaticInitd37ce8b2e983212410bbd0ee072bea41::$classMap;
 
         }, null, ClassLoader::class);
