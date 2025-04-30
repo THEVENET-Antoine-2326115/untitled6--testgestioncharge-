@@ -17,6 +17,11 @@ class DashboardModel {
     private $db;
 
     /**
+     * @var string Dossier contenant les fichiers XLSX convertis
+     */
+    private $convertedFilesFolder = 'C:\Users\a.thevenet\Documents\PROCESSFILETEMP';
+
+    /**
      * Constructeur du DashboardModel
      */
     public function __construct() {
@@ -39,11 +44,55 @@ class DashboardModel {
     }
 
     /**
+     * Obtenir la liste de tous les fichiers XLSX dans le dossier des fichiers convertis
+     *
+     * @return array Liste des chemins des fichiers XLSX
+     */
+    public function getConvertedExcelFiles() {
+        $excelFiles = [];
+
+        // Vérifier si le dossier existe
+        if (!is_dir($this->convertedFilesFolder)) {
+            return $excelFiles;
+        }
+
+        // Parcourir le dossier pour trouver les fichiers XLSX
+        $files = scandir($this->convertedFilesFolder);
+        foreach ($files as $file) {
+            // Ignorer les dossiers spéciaux
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $filePath = $this->convertedFilesFolder . DIRECTORY_SEPARATOR . $file;
+
+            // Vérifier si c'est un fichier et s'il a l'extension .xlsx
+            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
+                $excelFiles[] = $filePath;
+            }
+        }
+
+        return $excelFiles;
+    }
+
+    /**
      * Obtenir le chemin du fichier Excel par défaut
+     *
+     * Cette méthode retourne maintenant le premier fichier XLSX trouvé dans le dossier
+     * des fichiers convertis, ou le fichier par défaut si aucun fichier converti n'est disponible.
      *
      * @return string|null Chemin du fichier par défaut ou null si aucun fichier disponible
      */
     public function getDefaultExcelFile() {
+        // Essayer d'abord de trouver des fichiers XLSX convertis
+        $convertedFiles = $this->getConvertedExcelFiles();
+
+        if (!empty($convertedFiles)) {
+            // Retourner le premier fichier XLSX trouvé
+            return $convertedFiles[0];
+        }
+
+        // Si aucun fichier converti n'est trouvé, essayer le fichier par défaut
         $defaultFile = 'uploads/planning stage information Antoine Thévenet test 20250418.xlsx';
 
         if (file_exists($defaultFile)) {
@@ -59,7 +108,13 @@ class DashboardModel {
      * @return string|null Nom du fichier par défaut ou null si aucun fichier disponible
      */
     public function getDefaultExcelFileName() {
-        return 'planning stage information Antoine Thévenet test 20250418.xlsx';
+        $filePath = $this->getDefaultExcelFile();
+
+        if ($filePath) {
+            return basename($filePath);
+        }
+
+        return null;
     }
 
     /**
@@ -118,5 +173,31 @@ class DashboardModel {
 
         $reader->close();
         return $data;
+    }
+
+    /**
+     * Lire tous les fichiers Excel convertis et retourner leur contenu fusionné
+     *
+     * @return array Données fusionnées de tous les fichiers Excel
+     */
+    public function readAllConvertedExcelFiles() {
+        $allData = [];
+        $excelFiles = $this->getConvertedExcelFiles();
+
+        foreach ($excelFiles as $filePath) {
+            try {
+                $fileName = basename($filePath);
+                $fileData = $this->readExcelFile($filePath);
+
+                // Ajouter les données de ce fichier à l'ensemble des données
+                // en utilisant le nom du fichier comme clé pour distinguer les sources
+                $allData[$fileName] = $fileData;
+            } catch (\Exception $e) {
+                // Logger l'erreur mais continuer avec les autres fichiers
+                error_log("Erreur lors de la lecture du fichier $filePath: " . $e->getMessage());
+            }
+        }
+
+        return $allData;
     }
 }

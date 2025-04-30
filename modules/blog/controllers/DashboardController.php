@@ -47,9 +47,12 @@ class DashboardController {
         } elseif ($subAction === 'clear_data') {
             $this->handleClearData($userInfo);
             return;
+        } elseif ($subAction === 'show_all_files') {
+            $this->handleShowAllFiles($userInfo);
+            return;
         }
 
-        // Récupérer et afficher les données du fichier Excel
+        // Récupérer et afficher les données du fichier Excel par défaut
         try {
             // Obtenir le chemin du fichier Excel par défaut
             $filePath = $this->model->getDefaultExcelFile();
@@ -63,16 +66,45 @@ class DashboardController {
             // Lire les données du fichier Excel
             $excelData = $this->model->readExcelFile($filePath);
 
+            // Récupérer la liste des fichiers convertis disponibles
+            $convertedFiles = $this->model->getConvertedExcelFiles();
+
             // Récupérer les dernières données importées (s'il y en a)
             $importedData = $this->importModel->getImportedData(10);
 
             // Afficher le tableau de bord avec les données Excel
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData);
+            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, null, $convertedFiles);
 
         } catch (IOException | ReaderNotOpenedException $e) {
             echo $this->view->showErrorMessage("Erreur lors de la lecture du fichier Excel : " . $e->getMessage());
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Une erreur est survenue : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Gère l'affichage de tous les fichiers convertis
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleShowAllFiles($userInfo) {
+        try {
+            // Lire tous les fichiers Excel convertis
+            $allExcelData = $this->model->readAllConvertedExcelFiles();
+
+            if (empty($allExcelData)) {
+                echo $this->view->showErrorMessage("Aucun fichier Excel converti n'est disponible.");
+                return;
+            }
+
+            // Récupérer la liste des fichiers convertis disponibles
+            $convertedFiles = $this->model->getConvertedExcelFiles();
+
+            // Afficher le tableau de bord avec tous les fichiers
+            echo $this->view->showDashboardWithAllExcelFiles($userInfo, $allExcelData, $convertedFiles);
+
+        } catch (\Exception $e) {
+            echo $this->view->showErrorMessage("Erreur lors de la lecture des fichiers Excel : " . $e->getMessage());
         }
     }
 
@@ -83,12 +115,12 @@ class DashboardController {
      */
     private function handleImport($userInfo) {
         try {
-            // Obtenir le chemin du fichier Excel par défaut
-            $filePath = $this->model->getDefaultExcelFile();
-            $fileName = $this->model->getDefaultExcelFileName();
+            // Obtenir le chemin du fichier Excel à importer (via GET ou par défaut)
+            $filePath = $_GET['file'] ?? $this->model->getDefaultExcelFile();
+            $fileName = basename($filePath);
 
-            if (!$filePath) {
-                echo $this->view->showErrorMessage("Aucun fichier Excel disponible.");
+            if (!$filePath || !file_exists($filePath)) {
+                echo $this->view->showErrorMessage("Le fichier spécifié n'existe pas.");
                 return;
             }
 
@@ -101,8 +133,11 @@ class DashboardController {
             // Récupérer les dernières données importées
             $importedData = $this->importModel->getImportedData(10);
 
+            // Récupérer la liste des fichiers convertis disponibles
+            $convertedFiles = $this->model->getConvertedExcelFiles();
+
             // Afficher le tableau de bord avec le message de résultat
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result);
+            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result, $convertedFiles);
 
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Erreur lors de l'importation : " . $e->getMessage());
@@ -134,8 +169,11 @@ class DashboardController {
             // Récupérer les dernières données importées (devraient être vides maintenant)
             $importedData = $this->importModel->getImportedData(10);
 
+            // Récupérer la liste des fichiers convertis disponibles
+            $convertedFiles = $this->model->getConvertedExcelFiles();
+
             // Afficher le tableau de bord avec le message de résultat
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result);
+            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result, $convertedFiles);
 
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Erreur lors de la suppression des données : " . $e->getMessage());

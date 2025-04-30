@@ -25,7 +25,7 @@ switch ($action) {
         $controller->handleRequest();
         break;
     case 'process-mpp-files':
-        // Traitement automatique des fichiers MPP
+        // Conversion automatique des fichiers MPP vers XLSX
         $controller = new modules\blog\controllers\MppProcessorController();
         $controller->handleRequest();
         break;

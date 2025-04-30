@@ -103,3 +103,159 @@
     font-size: 48px;
     margin-bottom: 10px;
 }
+/* Styles pour la section des fichiers convertis */
+.converted-files-section {
+    margin-top: 30px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.file-list {
+    margin-top: 15px;
+}
+
+.file-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.import-link {
+    background-color: #4CAF50;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.import-link:hover {
+    background-color: #45a049;
+}
+
+.action-buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 15px;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.view-all {
+    background-color: #2196F3;
+    color: white;
+}
+
+.view-all:hover {
+    background-color: #0b7dda;
+}
+
+.back-link {
+    background-color: #607D8B;
+    color: white;
+}
+
+.back-link:hover {
+    background-color: #455A64;
+}
+
+/* Styles pour l'affichage des fichiers multiples */
+.file-container {
+    margin-bottom: 40px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.file-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Styles pour les boutons d'action */
+.btn-import button {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-clear button {
+    background-color: #f44336;
+    color: white;
+}
+
+.btn-convert button {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-import button:hover {
+    background-color: #45a049;
+}
+
+.btn-clear button:hover {
+    background-color: #d32f2f;
+}
+
+.btn-convert button:hover {
+    background-color: #0b7dda;
+}
+.message {
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #721c24;
+}
+
+/* Styles pour les tableaux de données */
+.table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.toggle-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.toggle-button:hover {
+    background-color: #45a049;
+}
+
+.hidden {
+    display: none;
+}

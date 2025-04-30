@@ -23,6 +23,7 @@ class DashboardView {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Erreur</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
+            <link rel="stylesheet" href="_assets/css/dashboard-files.css">
         </head>
         <body>
         <div class="navbar">
@@ -33,9 +34,10 @@ class DashboardView {
 
         <div class="container">
             <h1>Erreur</h1>
-            <div class="error-message">
+            <div class="message error">
                 <?php echo htmlspecialchars($message); ?>
             </div>
+            <a href="index.php?action=dashboard" class="btn back-link">Retour au tableau de bord</a>
         </div>
         </body>
         </html>
@@ -49,11 +51,12 @@ class DashboardView {
      * @param array $userInfo Informations de l'utilisateur
      * @param string $fileName Nom du fichier Excel
      * @param array $excelData Données du fichier Excel
-     * @param array $importedData Données déjà importées dans la base de données (non utilisé)
+     * @param array $importedData Données déjà importées dans la base de données
      * @param array|null $importResult Résultat de l'importation (facultatif)
+     * @param array|null $convertedFiles Liste des fichiers convertis disponibles (facultatif)
      * @return string Le contenu HTML généré
      */
-    public function showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData = [], $importResult = null) {
+    public function showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData = [], $importResult = null, $convertedFiles = []) {
         ob_start();
         ?>
         <!DOCTYPE html>
@@ -64,50 +67,7 @@ class DashboardView {
             <title>Tableau de bord - Gestion de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
             <link rel="stylesheet" href="_assets/css/excel.css">
-            <style>
-                .toggle-button {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 10px 15px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    margin-bottom: 10px;
-                    font-size: 14px;
-                }
-                .toggle-button:hover {
-                    background-color: #45a049;
-                }
-                .hidden {
-                    display: none;
-                }
-                .import-actions {
-                    margin: 20px 0;
-                    display: flex;
-                    gap: 10px;
-                }
-                .btn-import {
-                    background-color: #4CAF50;
-                }
-                .btn-clear {
-                    background-color: #f44336;
-                }
-                .result-box {
-                    padding: 15px;
-                    margin: 20px 0;
-                    border-radius: 4px;
-                }
-                .result-success {
-                    background-color: #d4edda;
-                    border-color: #c3e6cb;
-                    color: #155724;
-                }
-                .result-error {
-                    background-color: #f8d7da;
-                    border-color: #f5c2c7;
-                    color: #721c24;
-                }
-            </style>
+            <link rel="stylesheet" href="_assets/css/dashboard-files.css">
         </head>
         <body>
         <div class="navbar">
@@ -143,7 +103,7 @@ class DashboardView {
                     <h2>Importation des données</h2>
 
                     <?php if ($importResult): ?>
-                        <div class="result-box <?php echo $importResult['success'] ? 'result-success' : 'result-error'; ?>">
+                        <div class="message <?php echo $importResult['success'] ? 'success' : 'error'; ?>">
                             <?php echo htmlspecialchars($importResult['message']); ?>
                         </div>
                     <?php endif; ?>
@@ -155,7 +115,26 @@ class DashboardView {
                         <a href="index.php?action=dashboard&subaction=clear_data" class="btn-clear" onclick="return confirm('Attention! Cette action supprimera toutes les données importées. Continuer?')">
                             <button>Vider la table de données</button>
                         </a>
+                        <a href="index.php?action=process-mpp-files" class="btn-convert">
+                            <button>Convertir les fichiers MPP en XLSX</button>
+                        </a>
                     </div>
+
+                    <div class="card">
+                        <?php
+                        // Afficher le message de conversion si disponible
+                        if (isset($_SESSION['conversion_message'])) {
+                            $messageClass = ($_SESSION['conversion_status'] === 'success') ? 'success' : 'error';
+                            echo '<div class="message ' . $messageClass . '">' .
+                                htmlspecialchars($_SESSION['conversion_message']) .
+                                '</div>';
+
+                            // Une fois affiché, supprimer le message de la session
+                            unset($_SESSION['conversion_message']);
+                            unset($_SESSION['conversion_status']);
+                        }
+                        ?>
+                        <h1>Tableau de bord - Gestion de Charge</h1>
                 </div>
 
                 <div class="excel-container">

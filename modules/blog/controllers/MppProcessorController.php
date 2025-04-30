@@ -1,50 +1,62 @@
 <?php
 namespace modules\blog\controllers;
 
-use modules\blog\models\ProjectFileProcessorModel;
+use modules\blog\models\DashboardModel;
 
 /**
  * Classe MppProcessorController
  *
- * Cette classe gère les opérations de traitement automatique des fichiers MPP.
+ * Cette classe gère les opérations liées à la conversion d'un fichier MPP spécifique en XLSX.
  */
-class MppProcessorController
-{
-    /**
-     * @var ProjectFileProcessorModel $model Instance du modèle de traitement
-     */
-    private $model;
+class MppProcessorController {
+    private $dashboardModel;
+
+    // Chemin vers le script de conversion simplifié
+    private $convertScript = 'convertMppFile.php';
 
     /**
      * Constructeur du MppProcessorController
      */
-    public function __construct()
-    {
-        $this->model = new ProjectFileProcessorModel();
+    public function __construct() {
+        $this->dashboardModel = new DashboardModel();
     }
 
     /**
-     * Gère les requêtes liées au traitement des fichiers MPP
-     *
-     * @return void
+     * Gère la requête de conversion et redirige vers le tableau de bord
      */
-    public function handleRequest()
-    {
-        // Lancer le traitement automatique
-        $result = $this->model->processProjectFiles();
+    public function handleRequest() {
+        try {
+            // Vérifier si le script de conversion existe
+            if (!file_exists($this->convertScript)) {
+                $_SESSION['conversion_message'] = "Le script de conversion n'existe pas: " . $this->convertScript;
+                $_SESSION['conversion_status'] = 'error';
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
 
-        // Pour l'interface backend, on peut simplement retourner un JSON
-        header('Content-Type: application/json');
-        echo json_encode($result, JSON_PRETTY_PRINT);
-    }
+            // Capturer la sortie du script de conversion
+            ob_start();
+            include $this->convertScript;
+            $output = ob_get_clean();
 
-    /**
-     * Exécute le traitement à partir d'une tâche cron ou autre processus automatisé
-     *
-     * @return array Résultats du traitement
-     */
-    public function processBatch()
-    {
-        return $this->model->processProjectFiles();
+            // Déterminer si la conversion a réussi
+            $success = (strpos($output, 'Conversion réussie') !== false);
+
+            // Stocker le message dans la session
+            $_SESSION['conversion_message'] = $output;
+            $_SESSION['conversion_status'] = $success ? 'success' : 'error';
+
+            // Rediriger vers le tableau de bord
+            header('Location: index.php?action=dashboard');
+            exit;
+
+        } catch (\Exception $e) {
+            // En cas d'erreur, stocker le message d'erreur et rediriger
+            $_SESSION['conversion_message'] = "Erreur lors de la conversion: " . $e->getMessage();
+            $_SESSION['conversion_status'] = 'error';
+
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
     }
 }
