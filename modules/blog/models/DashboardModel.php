@@ -6,7 +6,7 @@ use Box\Spout\Common\Exception\IOException;
 use Box\Spout\Reader\Exception\ReaderNotOpenedException;
 
 /**
- * Classe DashboardModel
+ * Classe DashboardModel test
  *
  * Cette classe gère les données nécessaires pour le tableau de bord.
  */
