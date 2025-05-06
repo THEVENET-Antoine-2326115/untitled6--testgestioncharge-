@@ -1,8 +1,6 @@
 <?php
 namespace modules\blog\controllers;
 
-use modules\blog\models\DashboardModel;
-
 /**
  * Classe MppProcessorController
  *
@@ -11,14 +9,14 @@ use modules\blog\models\DashboardModel;
 class MppProcessorController {
     private $dashboardModel;
 
-    // Chemin vers le script de conversion simplifié
-    private $convertScript = 'convertMppFile.php';
+    // Chemin vers le script de conversion de test
+    private $convertScript = 'conversion_test.php';
 
     /**
      * Constructeur du MppProcessorController
      */
     public function __construct() {
-        $this->dashboardModel = new DashboardModel();
+        $this->dashboardModel = new \modules\blog\models\DashboardModel();
     }
 
     /**
@@ -40,7 +38,7 @@ class MppProcessorController {
             $output = ob_get_clean();
 
             // Déterminer si la conversion a réussi
-            $success = (strpos($output, 'Conversion réussie') !== false);
+            $success = (strpos($output, 'Document converti avec succès') !== false);
 
             // Stocker le message dans la session
             $_SESSION['conversion_message'] = $output;
