@@ -24,10 +24,11 @@ function log_message($message) {
 }
 
 // Chemins de fichiers
-$inputFilePath = __DIR__ . '/uploads/converttest.docx.';
+$inputFilePath = __DIR__ . '/uploads/TestConversion.mpp';
 $outputFolder = __DIR__ . '/uploads';
-$outputFileName = "OREVOIR.docx";
+$outputFileName = "succes.mpp";
 $outputFilePath = $outputFolder . "/" . $outputFileName;
+$xlsxOutputPath = $outputFolder . "/" . pathinfo($outputFileName, PATHINFO_FILENAME) . ".xlsx";
 
 // Vérifier que le fichier source existe
 if (!file_exists($inputFilePath)) {
@@ -38,6 +39,7 @@ if (!file_exists($inputFilePath)) {
 log_message("Démarrage du test de stockage GroupDocs Cloud");
 log_message("Fichier source: " . $inputFilePath);
 log_message("Destination après téléchargement: " . $outputFilePath);
+log_message("Destination xlsx après conversion: " . $xlsxOutputPath);
 
 // Create instance of the API
 log_message("Initialisation de l'API GroupDocs");
@@ -45,11 +47,14 @@ $configuration = new GroupDocs\Conversion\Configuration();
 $configuration->setAppSid($myClientId);
 $configuration->setAppKey($myClientSecret);
 $fileApi = new GroupDocs\Conversion\FileApi($configuration);
+$convertApi = new GroupDocs\Conversion\ConvertApi($configuration);
 
 try {
     // 1. Définir le nom du stockage et du fichier
     $storageName = "Chargeconversion";
-    $cloudFileName = "converttest.docx";
+    $cloudFileName = "TestConversion.mpp";
+    $cloudOutputFileName = "succes.mpp";
+    $cloudxlsxFileName = "succes.xlsx";
 
     log_message("Stockage cible: " . $storageName);
     log_message("Nom du fichier dans le cloud: " . $cloudFileName);
@@ -101,6 +106,61 @@ try {
 
     log_message("Test de stockage GroupDocs Cloud terminé avec succès!");
 
+    // 6. Télécharger le fichier succes.mpp vers le cloud pour la conversion
+    log_message("Téléchargement du fichier succes.mpp vers le cloud pour conversion...");
+    $uploadSuccessRequest = new GroupDocs\Conversion\Model\Requests\UploadFileRequest(
+        $cloudOutputFileName,
+        $outputFilePath,
+        $storageName
+    );
+
+    $uploadSuccessResult = $fileApi->uploadFile($uploadSuccessRequest);
+    log_message("Fichier succes.mpp téléchargé avec succès vers le cloud");
+
+    // 7. Configurer les paramètres pour la conversion en xlsx
+    log_message("Configuration des paramètres de conversion en xlsx...");
+    $settings = new GroupDocs\Conversion\Model\ConvertSettings();
+    $settings->setStorageName($storageName);
+    $settings->setFilePath($cloudOutputFileName);
+    $settings->setFormat("xlsx");
+    $settings->setOutputPath("succes.xlsx");
+
+    // 8. Lancer la conversion
+    log_message("Démarrage de la conversion en xlsx...");
+    $result = $convertApi->convertDocument(
+        new GroupDocs\Conversion\Model\Requests\ConvertDocumentRequest($settings)
+    );
+    log_message("Conversion en xlsx terminée");
+
+    // 9. Attendre que la conversion soit terminée
+    log_message("Attente de 15 secondes pour s'assurer que la conversion est terminée...");
+    sleep(15);
+
+    // 10. Télécharger le fichier xlsx converti
+    log_message("Téléchargement du fichier xlsx converti...");
+    $downloadxlsxRequest = new GroupDocs\Conversion\Model\Requests\DownloadFileRequest(
+        $cloudxlsxFileName,
+        $storageName,
+        null
+    );
+
+    $xlsxResponse = $fileApi->downloadFile($downloadxlsxRequest);
+    log_message("Fichier xlsx téléchargé depuis le cloud avec succès");
+
+    // 11. Enregistrer le fichier xlsx localement
+    log_message("Enregistrement du fichier xlsx localement...");
+    copy($xlsxResponse->getPathName(), $xlsxOutputPath);
+    log_message("Fichier xlsx enregistré avec succès dans: " . $xlsxOutputPath);
+
+    // 12. Vérifier si le fichier xlsx a été correctement enregistré
+    if (file_exists($xlsxOutputPath)) {
+        $xlsxSize = filesize($xlsxOutputPath);
+        log_message("Taille du fichier xlsx: " . $xlsxSize . " octets");
+        log_message("CONVERSION xlsx RÉUSSIE!");
+    } else {
+        log_message("ERREUR: Le fichier xlsx n'a pas été trouvé sur le disque local");
+    }
+
 } catch (Exception $e) {
     log_message("ERREUR: " . $e->getMessage());
 
@@ -114,5 +174,5 @@ try {
     }
 }
 
-log_message("Fin du test de stockage");
+log_message("Fin du test de stockage et de conversion");
 ?>
