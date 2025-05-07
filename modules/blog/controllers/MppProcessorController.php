@@ -10,7 +10,7 @@ class MppProcessorController {
     private $dashboardModel;
 
     // Chemin vers le script de conversion de test
-    private $convertScript = 'conversion_test.php';
+    private $convertScript = 'convertMppFile.php';
 
     /**
      * Constructeur du MppProcessorController
