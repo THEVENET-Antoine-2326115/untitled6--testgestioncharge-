@@ -4,126 +4,45 @@ namespace modules\blog\models;
 /**
  * Classe ChargeModel
  *
- * Cette classe gère l'analyse de la charge de travail à partir des données Excel.
+ * Cette classe gère l'analyse de la charge de travail à partir des données
+ * récupérées depuis la base de données via ImportModel.
  */
 class ChargeModel {
     /**
-     * Analyser les données Excel pour obtenir la charge par période
+     * @var ImportModel $importModel Instance pour récupérer les données
+     */
+    private $importModel;
+
+    /**
+     * Constructeur de ChargeModel
+     */
+    public function __construct() {
+        $this->importModel = new ImportModel();
+    }
+
+    /**
+     * Analyser les données de la base de données pour obtenir la charge par période
      *
-     * @param array $excelData Données du fichier Excel
      * @return array Données de charge analysées
      */
-    public function analyserChargeParPeriode($excelData) {
-        // Vérifier que les feuilles nécessaires existent
-        if (!isset($excelData['Table_tâches']) || !isset($excelData['Table_affectation'])) {
+    public function analyserChargeParPeriode() {
+        // Récupérer les données depuis ImportModel
+        $donneesDb = $this->importModel->getAllData();
+
+        if (empty($donneesDb)) {
             return [
-                'error' => "Les feuilles Table_tâches et Table_affectation sont requises."
+                'error' => "Aucune donnée disponible dans la base de données."
             ];
         }
 
-        // Récupérer les données des tâches et des affectations
-        $taches = $excelData['Table_tâches']['rows'];
-        $affectations = $excelData['Table_affectation']['rows'];
-
-        // Créer une structure de données pour les tâches avec leurs dates et noms
-        $tachesAvecDates = [];
-        foreach ($taches as $tache) {
-            if (!isset($tache['Nom']) || !isset($tache['Début']) || !isset($tache['Fin'])) {
-                continue;
-            }
-
-            $nomTache = $tache['Nom'];
-            $tachesAvecDates[] = [
-                'nom' => $nomTache,
-                'debut' => $this->parseDate($tache['Début']),
-                'fin' => $this->parseDate($tache['Fin']),
-                'capacite' => 0, // Sera mis à jour avec les données d'affectation
-                'processus' => '' // Sera mis à jour avec les données d'affectation
-            ];
-        }
-
-        // Associer les capacités des affectations aux tâches
-        // Utiliser un tableau associatif pour éviter les doublons
-        $tachesAssociees = [];
-        foreach ($tachesAvecDates as $tache) {
-            $nomTache = $tache['nom'];
-
-            // Si cette tâche existe déjà, on passe
-            if (isset($tachesAssociees[$nomTache])) {
-                continue;
-            }
-
-            foreach ($affectations as $affectation) {
-                if (!isset($affectation['Nom de la tâche']) || !isset($affectation['Capacité'])) {
-                    continue;
-                }
-
-                if ($affectation['Nom de la tâche'] === $nomTache) {
-                    // Convertir la capacité de "20%" à 0.2
-                    $capacite = str_replace('%', '', $affectation['Capacité']);
-                    $tache['capacite'] = floatval($capacite) / 100;
-
-                    // Récupérer le nom de la ressource comme processus
-                    if (isset($affectation['Nom de la ressource'])) {
-                        $tache['processus'] = $affectation['Nom de la ressource'];
-                    }
-
-                    break;
-                }
-            }
-
-            // Ajouter la tâche au tableau associatif pour éviter les doublons
-            $tachesAssociees[$nomTache] = $tache;
-        }
-
-        // Convertir le tableau associatif en tableau indexé
-        $tachesAvecDates = array_values($tachesAssociees);
+        // Convertir les données de la BD en format utilisable pour l'analyse
+        $chargeParJour = $this->convertDbDataToChargeData($donneesDb);
 
         // Trouver la date de début et de fin globale du projet
-        $dateDebut = null;
-        $dateFin = null;
-        foreach ($tachesAvecDates as $tache) {
-            if ($dateDebut === null || $tache['debut'] < $dateDebut) {
-                $dateDebut = $tache['debut'];
-            }
-            if ($dateFin === null || $tache['fin'] > $dateFin) {
-                $dateFin = $tache['fin'];
-            }
-        }
-
-        // Générer tous les jours entre début et fin
-        $jours = $this->getJoursEntreDates($dateDebut, $dateFin);
-
-        // Pour chaque jour, calculer la charge totale
-        $chargeParJour = [];
-        foreach ($jours as $jour) {
-            $tachesDuJour = [];
-            $processusDuJour = [];
-            $chargeTotal = 0;
-            $jourSemaine = $jour->format('N'); // 1 (lundi) à 7 (dimanche)
-            $estWeekend = ($jourSemaine == 6 || $jourSemaine == 7); // 6 = samedi, 7 = dimanche
-
-            // Si c'est un weekend, on n'attribue pas de charge
-            if (!$estWeekend) {
-                foreach ($tachesAvecDates as $tache) {
-                    if ($jour >= $tache['debut'] && $jour <= $tache['fin']) {
-                        $tachesDuJour[] = $tache['nom'];
-                        $processusDuJour[$tache['nom']] = $tache['processus'];
-                        $chargeTotal += $tache['capacite'];
-                    }
-                }
-            }
-
-            $chargeParJour[] = [
-                'date' => $jour,
-                'charge' => $chargeTotal,
-                'taches' => $tachesDuJour,
-                'processus' => $processusDuJour,
-                'chargePleine' => $chargeTotal == 1, // Charge à 100%
-                'surcharge' => $chargeTotal > 1,     // Surcharge si > 100%
-                'estWeekend' => $estWeekend
-            ];
-        }
+        $dates = array_keys($chargeParJour);
+        sort($dates);
+        $dateDebut = new \DateTime(reset($dates));
+        $dateFin = new \DateTime(end($dates));
 
         // Identifier les périodes de surcharge (charge > 100%)
         $periodesSurcharge = array_filter($chargeParJour, function($jour) {
@@ -132,79 +51,73 @@ class ChargeModel {
 
         // Identifier les périodes de charge pleine (charge = 100%)
         $periodesChargePleine = array_filter($chargeParJour, function($jour) {
-            return $jour['chargePleine'];
+            return $jour['chargePleine'] ?? false;
         });
 
         return [
-            'chargeParJour' => $chargeParJour,
-            'periodesSurcharge' => $periodesSurcharge,
-            'periodesChargePleine' => $periodesChargePleine,
+            'chargeParJour' => array_values($chargeParJour),
+            'periodesSurcharge' => array_values($periodesSurcharge),
+            'periodesChargePleine' => array_values($periodesChargePleine),
             'dateDebut' => $dateDebut,
             'dateFin' => $dateFin
         ];
     }
 
     /**
-     * Parse une date à partir d'une chaîne de caractères
+     * Convertit les données de la base de données en format d'analyse de charge
      *
-     * @param string $dateStr Format attendu: "DD Mois YYYY HH:MM"
-     * @return \DateTime Objet DateTime
+     * @param array $donneesDb Données de la base de données
+     * @return array Données formatées pour l'analyse
      */
-    private function parseDate($dateStr) {
-        // Format attendu: "DD Mois YYYY HH:MM"
-        $moisFr = [
-            'Janvier' => '01', 'Février' => '02', 'Mars' => '03', 'Avril' => '04',
-            'Mai' => '05', 'Juin' => '06', 'Juillet' => '07', 'Août' => '08',
-            'Septembre' => '09', 'Octobre' => '10', 'Novembre' => '11', 'Décembre' => '12'
-        ];
+    private function convertDbDataToChargeData($donneesDb) {
+        $chargeParJour = [];
 
-        // Remplacer le nom du mois par son numéro
-        foreach ($moisFr as $nom => $numero) {
-            $dateStr = str_replace($nom, $numero, $dateStr);
-        }
+        // Grouper les données par date
+        foreach ($donneesDb as $donnee) {
+            $date = $donnee['Date'];
+            $processus = $donnee['Processus'];
+            $tache = $donnee['Tache'];
+            $charge = floatval($donnee['Charge']);
 
-        // Convertir en format Y-m-d H:i
-        $pattern = '/(\d{1,2}) (\d{1,2}) (\d{4}) (\d{1,2}):(\d{1,2})/';
-        $replacement = '$3-$2-$1 $4:$5';
-        $dateFormatted = preg_replace($pattern, $replacement, $dateStr);
+            // Initialiser le jour s'il n'existe pas
+            if (!isset($chargeParJour[$date])) {
+                $dateObj = new \DateTime($date);
+                $jourSemaine = $dateObj->format('N'); // 1 (lundi) à 7 (dimanche)
+                $estWeekend = ($jourSemaine == 6 || $jourSemaine == 7);
 
-        return new \DateTime($dateFormatted);
-    }
+                $chargeParJour[$date] = [
+                    'date' => $dateObj,
+                    'charge' => 0,
+                    'taches' => [],
+                    'processus' => [],
+                    'chargePleine' => false,
+                    'surcharge' => false,
+                    'estWeekend' => $estWeekend
+                ];
+            }
 
-    /**
-     * Obtenir tous les jours entre deux dates
-     *
-     * @param \DateTime $debut Date de début
-     * @param \DateTime $fin Date de fin
-     * @return array Liste de tous les jours
-     */
-    private function getJoursEntreDates($debut, $fin) {
-        $interval = new \DateInterval('P1D'); // Intervalle d'un jour
-        $periode = new \DatePeriod($debut, $interval, $fin);
+            // Ajouter la charge et les informations
+            $chargeParJour[$date]['charge'] += $charge;
 
-        $jours = [];
-        foreach ($periode as $date) {
-            $jours[] = clone $date;
-        }
+            // Ajouter la tâche si pas déjà présente
+            if (!in_array($tache, $chargeParJour[$date]['taches'])) {
+                $chargeParJour[$date]['taches'][] = $tache;
+            }
 
-        // Ajouter le jour de fin en évitant un doublon
-        $finFormatDate = $fin->format('Y-m-d');
-        $dernierJourPresent = false;
-
-        // Vérifier si le jour de fin est déjà présent
-        foreach ($jours as $date) {
-            if ($date->format('Y-m-d') === $finFormatDate) {
-                $dernierJourPresent = true;
-                break;
+            // Ajouter le processus si pas déjà présent
+            if (!in_array($processus, $chargeParJour[$date]['processus'])) {
+                $chargeParJour[$date]['processus'][] = $processus;
             }
         }
 
-        // N'ajouter le jour de fin que s'il n'est pas déjà présent
-        if (!$dernierJourPresent) {
-            $jours[] = clone $fin;
+        // Calculer les indicateurs de charge pour chaque jour
+        foreach ($chargeParJour as $date => &$jour) {
+            $charge = $jour['charge'];
+            $jour['chargePleine'] = (abs($charge - 1.0) < 0.01); // Charge à 100% (avec tolérance)
+            $jour['surcharge'] = ($charge > 1.0); // Surcharge si > 100%
         }
 
-        return $jours;
+        return $chargeParJour;
     }
 
     /**
@@ -243,18 +156,7 @@ class ChargeModel {
             }
 
             // Préparer les processus pour l'affichage
-            $processusTexte = '';
-            if (!empty($jour['processus'])) {
-                // Extraire uniquement les valeurs uniques de processus (sans doublons)
-                $processusUniques = array_unique(array_values($jour['processus']));
-
-                // Filtrer les valeurs vides
-                $processusUniques = array_filter($processusUniques, function($val) {
-                    return !empty($val);
-                });
-
-                $processusTexte = implode(', ', $processusUniques);
-            }
+            $processusTexte = implode(', ', $jour['processus']);
 
             // Déterminer l'affichage en fonction du type de jour
             if ($jour['estWeekend']) {

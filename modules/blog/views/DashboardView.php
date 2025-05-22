@@ -5,6 +5,7 @@ namespace modules\blog\views;
  * Classe DashboardView
  *
  * Cette classe gère l'affichage du tableau de bord.
+ * Adaptée pour les nouvelles méthodes du contrôleur refactorisé.
  */
 class DashboardView {
     /**
@@ -46,17 +47,49 @@ class DashboardView {
     }
 
     /**
-     * Affiche le tableau de bord avec les données Excel intégrées
+     * Affiche le tableau de bord principal
      *
      * @param array $userInfo Informations de l'utilisateur
-     * @param string $fileName Nom du fichier Excel
-     * @param array $excelData Données du fichier Excel
-     * @param array $importedData Données déjà importées dans la base de données
-     * @param array|null $importResult Résultat de l'importation (facultatif)
-     * @param array|null $convertedFiles Liste des fichiers convertis disponibles (facultatif)
+     * @param array $dashboardData Données du dashboard
      * @return string Le contenu HTML généré
      */
-    public function showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData = [], $importResult = null, $convertedFiles = []) {
+    public function showDashboard($userInfo, $dashboardData) {
+        return $this->renderDashboard($userInfo, $dashboardData);
+    }
+
+    /**
+     * Affiche le tableau de bord avec un résultat d'opération
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     * @param array $dashboardData Données du dashboard
+     * @param array $result Résultat de l'opération
+     * @return string Le contenu HTML généré
+     */
+    public function showDashboardWithResult($userInfo, $dashboardData, $result) {
+        return $this->renderDashboard($userInfo, $dashboardData, $result);
+    }
+
+    /**
+     * Affiche toutes les données
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     * @param array $allData Toutes les données
+     * @return string Le contenu HTML généré
+     */
+    public function showAllData($userInfo, $allData) {
+        return $this->renderDashboard($userInfo, $allData, null, true);
+    }
+
+    /**
+     * Génère le HTML du tableau de bord (méthode commune)
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     * @param array $dashboardData Données du dashboard
+     * @param array|null $result Résultat d'opération (optionnel)
+     * @param bool $showAll Afficher toutes les données
+     * @return string Le contenu HTML généré
+     */
+    private function renderDashboard($userInfo, $dashboardData, $result = null, $showAll = false) {
         ob_start();
         ?>
         <!DOCTYPE html>
@@ -71,7 +104,7 @@ class DashboardView {
         </head>
         <body>
         <div class="navbar">
-            <a href="index.php?action=dashboard">Tableau de bord</a>
+            <a href="index.php">Tableau de bord</a>
             <a href="index.php?action=analyse-charge">Analyse de Charge</a>
             <a href="index.php?action=logout">Déconnexion</a>
         </div>
@@ -83,10 +116,10 @@ class DashboardView {
 
                 <div class="menu-items">
                     <div class="menu-item">
-                        <a href="index.php?action=dashboard">
+                        <a href="index.php">
                             <div class="icon">📊</div>
                             <h3>Visualiser les données</h3>
-                            <p>Consulter les données brutes du fichier Excel</p>
+                            <p>Consulter les données de la base de données</p>
                         </a>
                     </div>
                     <div class="menu-item">
@@ -98,59 +131,74 @@ class DashboardView {
                     </div>
                 </div>
 
-                <!-- Section d'importation -->
+                <!-- Section d'importation et conversion -->
                 <div class="import-section">
-                    <h2>Importation des données</h2>
+                    <h2>Gestion des données</h2>
 
-                    <?php if ($importResult): ?>
-                        <div class="message <?php echo $importResult['success'] ? 'success' : 'error'; ?>">
-                            <?php echo htmlspecialchars($importResult['message']); ?>
+                    <!-- Affichage du résultat si présent -->
+                    <?php if ($result): ?>
+                        <div class="message <?php echo $result['success'] ? 'success' : 'error'; ?>">
+                            <?php echo nl2br(htmlspecialchars($result['message'])); ?>
                         </div>
                     <?php endif; ?>
 
-                    <div class="import-actions">
-                        <a href="index.php?action=dashboard&subaction=import" class="btn-import" onclick="return confirm('Êtes-vous sûr de vouloir importer les données?')">
-                            <button>Importer les données vers la base</button>
+                    <!-- Affichage du résumé des données -->
+                    <?php if (isset($dashboardData['summary'])): ?>
+                        <div class="summary-box">
+                            <div class="summary-title">État des données</div>
+                            <?php if ($dashboardData['summary']['total_entries'] > 0): ?>
+                                <p><strong>Données disponibles :</strong> <?php echo $dashboardData['summary']['total_entries']; ?> entrées</p>
+                                <p><strong>Période :</strong> <?php echo $dashboardData['summary']['date_debut']; ?> au <?php echo $dashboardData['summary']['date_fin']; ?></p>
+                                <p><strong>Processus :</strong> <?php echo $dashboardData['summary']['processus_uniques']; ?> processus différents</p>
+                            <?php else: ?>
+                                <p><strong>Aucune donnée</strong> disponible dans la base de données.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Informations sur les fichiers -->
+                    <?php if (isset($dashboardData['files_info'])): ?>
+                        <div class="summary-box">
+                            <div class="summary-title">Fichiers disponibles</div>
+                            <p><strong>Fichiers MPP :</strong> <?php echo $dashboardData['files_info']['mpp_count']; ?> fichier(s)</p>
+                            <p><strong>Fichiers XLSX :</strong> <?php echo $dashboardData['files_info']['xlsx_count']; ?> fichier(s)</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Boutons d'action -->
+                    <div class="action-buttons">
+                        <a href="index.php?subaction=convert_files" class="btn-convert" onclick="return confirm('Lancer la conversion des fichiers MPP et l\'importation en base ?')">
+                            <button>Convertir les fichiers MPP</button>
                         </a>
-                        <a href="index.php?action=dashboard&subaction=clear_data" class="btn-clear" onclick="return confirm('Attention! Cette action supprimera toutes les données importées. Continuer?')">
-                            <button>Vider la table de données</button>
+                        <a href="index.php?subaction=import" class="btn-import" onclick="return confirm('Importer les données de la base vers la mémoire ?')">
+                            <button>Importer les données</button>
                         </a>
-                        <a href="index.php?action=process-mpp-files" class="btn-convert">
-                            <button>Convertir les fichiers MPP en XLSX</button>
+                        <a href="index.php?subaction=clear_data" class="btn-clear" onclick="return confirm('Attention! Cette action supprimera toutes les données. Continuer?')">
+                            <button>Vider la base de données</button>
                         </a>
+                        <?php if (isset($dashboardData['summary']) && $dashboardData['summary']['total_entries'] > 0): ?>
+                            <a href="index.php?subaction=show_all_files" class="btn view-all">
+                                <button>Voir toutes les données</button>
+                            </a>
+                        <?php endif; ?>
                     </div>
-
-                    <div class="card">
-                        <?php
-                        // Afficher le message de conversion si disponible
-                        if (isset($_SESSION['conversion_message'])) {
-                            $messageClass = ($_SESSION['conversion_status'] === 'success') ? 'success' : 'error';
-                            echo '<div class="message ' . $messageClass . '">' .
-                                htmlspecialchars($_SESSION['conversion_message']) .
-                                '</div>';
-
-                            // Une fois affiché, supprimer le message de la session
-                            unset($_SESSION['conversion_message']);
-                            unset($_SESSION['conversion_status']);
-                        }
-                        ?>
-                        <h1>Tableau de bord - Gestion de Charge</h1>
                 </div>
 
+                <!-- Affichage des données -->
                 <div class="excel-container">
-                    <h2>Fichier: <?php echo htmlspecialchars($fileName); ?></h2>
-                    <button class="toggle-button" id="toggleData">Afficher les données brutes</button>
+                    <?php if (isset($dashboardData['display_data']) && !empty($dashboardData['display_data'])): ?>
+                        <h2><?php echo htmlspecialchars($dashboardData['display_title'] ?? 'Données'); ?></h2>
+                        <button class="toggle-button" id="toggleData">
+                            <?php echo $showAll ? 'Masquer les données' : 'Afficher les données brutes'; ?>
+                        </button>
 
-                    <div id="rawDataContainer" class="hidden">
-                        <?php if (empty($excelData)): ?>
-                            <p>Aucune donnée trouvée dans ce fichier.</p>
-                        <?php else: ?>
-                            <?php foreach ($excelData as $sheetName => $sheetData): ?>
+                        <div id="rawDataContainer" class="<?php echo $showAll ? '' : 'hidden'; ?>">
+                            <?php foreach ($dashboardData['display_data'] as $sheetName => $sheetData): ?>
                                 <div class="sheet">
-                                    <h3>Feuille: <?php echo htmlspecialchars($sheetName); ?></h3>
+                                    <h3>Données: <?php echo htmlspecialchars($sheetName); ?></h3>
 
                                     <?php if (empty($sheetData['rows'])): ?>
-                                        <p>Aucune donnée dans cette feuille.</p>
+                                        <p>Aucune donnée dans cette section.</p>
                                     <?php else: ?>
                                         <div class="table-container">
                                             <table>
@@ -166,7 +214,10 @@ class DashboardView {
                                                     <tr>
                                                         <?php foreach ($sheetData['headers'] as $header): ?>
                                                             <td>
-                                                                <?php echo isset($row[$header]) ? (is_string($row[$header]) ? htmlspecialchars($row[$header]) : $row[$header]) : ''; ?>
+                                                                <?php
+                                                                $value = $row[$header] ?? '';
+                                                                echo is_string($value) ? htmlspecialchars($value) : $value;
+                                                                ?>
                                                             </td>
                                                         <?php endforeach; ?>
                                                     </tr>
@@ -177,23 +228,28 @@ class DashboardView {
                                     <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
+                        </div>
+                    <?php else: ?>
+                        <h2>Aucune donnée à afficher</h2>
+                        <p>Convertissez d'abord des fichiers MPP ou importez des données existantes.</p>
+                    <?php endif; ?>
 
                     <script>
                         document.addEventListener('DOMContentLoaded', function() {
                             const toggleButton = document.getElementById('toggleData');
                             const dataContainer = document.getElementById('rawDataContainer');
 
-                            toggleButton.addEventListener('click', function() {
-                                if (dataContainer.classList.contains('hidden')) {
-                                    dataContainer.classList.remove('hidden');
-                                    toggleButton.textContent = 'Masquer les données brutes';
-                                } else {
-                                    dataContainer.classList.add('hidden');
-                                    toggleButton.textContent = 'Afficher les données brutes';
-                                }
-                            });
+                            if (toggleButton && dataContainer) {
+                                toggleButton.addEventListener('click', function() {
+                                    if (dataContainer.classList.contains('hidden')) {
+                                        dataContainer.classList.remove('hidden');
+                                        toggleButton.textContent = 'Masquer les données brutes';
+                                    } else {
+                                        dataContainer.classList.add('hidden');
+                                        toggleButton.textContent = 'Afficher les données brutes';
+                                    }
+                                });
+                            }
                         });
                     </script>
                 </div>

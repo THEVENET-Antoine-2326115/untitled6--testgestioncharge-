@@ -4,7 +4,8 @@ namespace modules\blog\models;
 /**
  * Classe ImportModel
  *
- * Cette classe gère l'importation des données analysées vers la base de données.
+ * Cette classe gère uniquement la récupération des données depuis la table Donnees
+ * et les stocke en mémoire pour être réutilisées par d'autres classes.
  */
 class ImportModel {
     /**
@@ -13,9 +14,14 @@ class ImportModel {
     private $db;
 
     /**
-     * @var ChargeModel $chargeModel Instance de ChargeModel pour l'analyse des données
+     * @var array $donnees Données stockées en mémoire
      */
-    private $chargeModel;
+    private $donnees = [];
+
+    /**
+     * @var bool $dataLoaded Indique si les données ont été chargées
+     */
+    private $dataLoaded = false;
 
     /**
      * Constructeur de ImportModel
@@ -23,81 +29,49 @@ class ImportModel {
     public function __construct() {
         // Connexion à la base de données via SingletonModel
         $this->db = SingletonModel::getInstance()->getConnection();
-        $this->chargeModel = new ChargeModel();
     }
 
     /**
-     * Importe les données d'un fichier Excel analysé vers la base de données
+     * Charge toutes les données de la table Donnees en mémoire
      *
-     * @param array $excelData Données du fichier Excel
-     * @return array Résultat de l'importation
+     * @param bool $forceReload Force le rechargement même si déjà chargé
+     * @return bool Succès du chargement
      */
-    public function importDataToDatabase($excelData) {
-        // Analyser les données avec ChargeModel
-        $analyseResult = $this->chargeModel->analyserChargeParPeriode($excelData);
-
-        if (isset($analyseResult['error'])) {
-            return [
-                'success' => false,
-                'message' => $analyseResult['error']
-            ];
+    public function loadAllData($forceReload = false) {
+        // Si déjà chargé et pas de force reload, ne pas recharger
+        if ($this->dataLoaded && !$forceReload) {
+            return true;
         }
 
-        // Formater les résultats - cela nous donne exactement le format que nous voulons
-        $resultatsFormattés = $this->chargeModel->formaterResultats($analyseResult);
+        try {
+            $query = "SELECT Processus, Tache, Charge, Date FROM Donnees ORDER BY Date ASC";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
 
-        // Compter les entrées importées
-        $importCount = 0;
-        $errorCount = 0;
+            $this->donnees = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $this->dataLoaded = true;
 
-        // Préparer la requête d'insertion
-        $stmt = $this->db->prepare("INSERT INTO Donnees (Date, Processus, Tache, Charge) VALUES (:date, :processus, :tache, :charge)");
+            return true;
+        } catch (\PDOException $e) {
+            error_log("Erreur chargement données: " . $e->getMessage());
+            $this->donnees = [];
+            $this->dataLoaded = false;
+            return false;
+        }
+    }
 
-        // Parcourir les données mensuelles formatées
-        foreach ($resultatsFormattés['donneesMensuelles'] as $mois => $jours) {
-            foreach ($jours as $jour) {
-                // Ne pas importer les week-ends
-                if (isset($jour['estWeekend']) && $jour['estWeekend']) {
-                    continue;
-                }
-
-                // Convertir la date du format "dd/mm/yyyy" en "yyyy-mm-dd" pour la base de données
-                $dateParts = explode('/', $jour['date']);
-                if (count($dateParts) !== 3) {
-                    continue; // Format de date invalide
-                }
-
-                $date = $dateParts[2] . '-' . $dateParts[1] . '-' . $dateParts[0];
-
-                // Récupérer les processus et les tâches
-                $processus = $jour['processus'] ?? '';
-                $taches = $jour['taches'] ?? '';
-                $charge = $jour['charge'] ?? 0;
-
-                // Vérifier que la charge est un nombre
-                if (!is_numeric($charge)) {
-                    $charge = floatval(str_replace(',', '.', $charge));
-                }
-
-                try {
-                    $stmt->bindParam(':date', $date);
-                    $stmt->bindParam(':processus', $processus);
-                    $stmt->bindParam(':tache', $taches);
-                    $stmt->bindParam(':charge', $charge);
-                    $stmt->execute();
-                    $importCount++;
-                } catch (\PDOException $e) {
-                    $errorCount++;
-                }
-            }
+    /**
+     * Retourne toutes les données chargées
+     *
+     * @return array Toutes les données de la table Donnees
+     */
+    public function getAllData() {
+        // Charger les données si pas encore fait
+        if (!$this->dataLoaded) {
+            $this->loadAllData();
         }
 
-        return [
-            'success' => true,
-            'importCount' => $importCount,
-            'errorCount' => $errorCount,
-            'message' => "Importation terminée. $importCount entrées importées, $errorCount erreurs."
-        ];
+        return $this->donnees;
     }
 
     /**
@@ -108,24 +82,33 @@ class ImportModel {
     public function clearTable() {
         try {
             $this->db->exec("TRUNCATE TABLE Donnees");
+
+            // Vider aussi les données en mémoire
+            $this->donnees = [];
+            $this->dataLoaded = true; // Marquer comme chargé car maintenant vide
+
             return true;
         } catch (\PDOException $e) {
+            error_log("Erreur vidage table: " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Récupère les données importées
+     * Indique si des données sont chargées en mémoire
      *
-     * @param int $limit Limite du nombre de résultats
-     * @return array Données importées
+     * @return bool True si des données sont chargées
      */
-    public function getImportedData($limit = 50) {
-        $query = "SELECT * FROM Donnees ORDER BY Date DESC LIMIT :limit";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':limit', $limit, \PDO::PARAM_INT);
-        $stmt->execute();
+    public function hasData() {
+        return $this->dataLoaded && !empty($this->donnees);
+    }
 
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    /**
+     * Force le rechargement des données depuis la base
+     *
+     * @return bool Succès du rechargement
+     */
+    public function refreshData() {
+        return $this->loadAllData(true);
     }
 }

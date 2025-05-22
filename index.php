@@ -24,11 +24,6 @@ switch ($action) {
         $controller = new modules\blog\controllers\ChargeController();
         $controller->handleRequest();
         break;
-    case 'process-mpp-files':
-        // Conversion automatique des fichiers MPP vers XLSX
-        $controller = new modules\blog\controllers\MppProcessorController();
-        $controller->handleRequest();
-        break;
     case 'logout':
         // Déconnexion
         session_destroy();

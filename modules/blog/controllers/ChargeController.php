@@ -37,20 +37,14 @@ class ChargeController {
         $userInfo = $this->dashboardModel->getUserInfo($userId);
 
         try {
-            // Obtenir le chemin du fichier Excel par défaut
-            $filePath = $this->dashboardModel->getDefaultExcelFile();
-            $fileName = $this->dashboardModel->getDefaultExcelFileName();
-
-            if (!$filePath) {
-                echo $this->chargeView->showErrorMessage("Aucun fichier Excel disponible.");
+            // Vérifier si des données sont disponibles
+            if (!$this->dashboardModel->hasData()) {
+                echo $this->chargeView->showErrorMessage("Aucune donnée disponible. Veuillez d'abord convertir et importer des fichiers depuis le tableau de bord.");
                 return;
             }
 
-            // Lire les données du fichier Excel
-            $excelData = $this->dashboardModel->readExcelFile($filePath);
-
             // Analyser les données pour obtenir la charge par période
-            $resultatAnalyse = $this->chargeModel->analyserChargeParPeriode($excelData);
+            $resultatAnalyse = $this->chargeModel->analyserChargeParPeriode();
 
             if (isset($resultatAnalyse['error'])) {
                 echo $this->chargeView->showErrorMessage($resultatAnalyse['error']);
@@ -59,6 +53,10 @@ class ChargeController {
 
             // Formater les résultats pour l'affichage
             $resultatsFormattés = $this->chargeModel->formaterResultats($resultatAnalyse);
+
+            // Obtenir un résumé des données pour l'affichage
+            $dataSummary = $this->dashboardModel->getDataSummary();
+            $fileName = "Données de la base (" . $dataSummary['total_entries'] . " entrées)";
 
             // Afficher les résultats de l'analyse de charge
             echo $this->chargeView->showChargeAnalysis($userInfo, $fileName, $resultatsFormattés);

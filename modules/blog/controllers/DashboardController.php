@@ -2,20 +2,17 @@
 namespace modules\blog\controllers;
 
 use modules\blog\models\DashboardModel;
-use modules\blog\models\ImportModel;
 use modules\blog\views\DashboardView;
-use Box\Spout\Common\Exception\IOException;
-use Box\Spout\Reader\Exception\ReaderNotOpenedException;
 
 /**
  * Classe DashboardController
  *
- * Cette classe gère les opérations liées au tableau de bord.
+ * Cette classe sert de pont entre DashboardModel et DashboardView.
+ * Elle s'adapte aux méthodes disponibles dans les deux.
  */
 class DashboardController {
     private $model;
     private $view;
-    private $importModel;
 
     /**
      * Constructeur du DashboardController
@@ -23,7 +20,6 @@ class DashboardController {
     public function __construct() {
         $this->model = new DashboardModel();
         $this->view = new DashboardView();
-        $this->importModel = new ImportModel();
     }
 
     /**
@@ -41,106 +37,100 @@ class DashboardController {
         // Vérifier si une action spécifique est demandée
         $subAction = $_GET['subaction'] ?? '';
 
-        if ($subAction === 'import') {
-            $this->handleImport($userInfo);
-            return;
-        } elseif ($subAction === 'clear_data') {
-            $this->handleClearData($userInfo);
-            return;
-        } elseif ($subAction === 'show_all_files') {
-            $this->handleShowAllFiles($userInfo);
-            return;
+        switch ($subAction) {
+            case 'import':
+                $this->handleImport($userInfo);
+                break;
+            case 'clear_data':
+                $this->handleClearData($userInfo);
+                break;
+            case 'convert_files':
+                $this->handleConvertFiles($userInfo);
+                break;
+            case 'show_all_files':
+                $this->handleShowAllFiles($userInfo);
+                break;
+            default:
+                $this->handleDashboard($userInfo);
+                break;
         }
+    }
 
-        // Récupérer et afficher les données du fichier Excel par défaut
+    /**
+     * Affiche le tableau de bord principal
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleDashboard($userInfo) {
         try {
-            // Obtenir le chemin du fichier Excel par défaut
-            $filePath = $this->model->getDefaultExcelFile();
-            $fileName = $this->model->getDefaultExcelFileName();
+            // Préparer les données pour la vue refactorisée
+            $dashboardData = $this->prepareDashboardData();
 
-            if (!$filePath) {
-                echo $this->view->showErrorMessage("Aucun fichier Excel disponible.");
-                return;
-            }
+            // Utiliser la méthode showDashboard de la vue refactorisée
+            echo $this->view->showDashboard($userInfo, $dashboardData);
 
-            // Lire les données du fichier Excel
-            $excelData = $this->model->readExcelFile($filePath);
-
-            // Récupérer la liste des fichiers convertis disponibles
-            $convertedFiles = $this->model->getConvertedExcelFiles();
-
-            // Récupérer les dernières données importées (s'il y en a)
-            $importedData = $this->importModel->getImportedData(10);
-
-            // Afficher le tableau de bord avec les données Excel
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, null, $convertedFiles);
-
-        } catch (IOException | ReaderNotOpenedException $e) {
-            echo $this->view->showErrorMessage("Erreur lors de la lecture du fichier Excel : " . $e->getMessage());
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Une erreur est survenue : " . $e->getMessage());
         }
     }
 
     /**
-     * Gère l'affichage de tous les fichiers convertis
-     *
-     * @param array $userInfo Informations de l'utilisateur
-     */
-    private function handleShowAllFiles($userInfo) {
-        try {
-            // Lire tous les fichiers Excel convertis
-            $allExcelData = $this->model->readAllConvertedExcelFiles();
-
-            if (empty($allExcelData)) {
-                echo $this->view->showErrorMessage("Aucun fichier Excel converti n'est disponible.");
-                return;
-            }
-
-            // Récupérer la liste des fichiers convertis disponibles
-            $convertedFiles = $this->model->getConvertedExcelFiles();
-
-            // Afficher le tableau de bord avec tous les fichiers
-            echo $this->view->showDashboardWithAllExcelFiles($userInfo, $allExcelData, $convertedFiles);
-
-        } catch (\Exception $e) {
-            echo $this->view->showErrorMessage("Erreur lors de la lecture des fichiers Excel : " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Gère l'importation des données
+     * Gère l'importation des données depuis la base vers la mémoire
      *
      * @param array $userInfo Informations de l'utilisateur
      */
     private function handleImport($userInfo) {
         try {
-            // Obtenir le chemin du fichier Excel à importer (via GET ou par défaut)
-            $filePath = $_GET['file'] ?? $this->model->getDefaultExcelFile();
-            $fileName = basename($filePath);
+            // Utiliser la méthode refreshData() du modèle
+            $success = $this->model->refreshData();
 
-            if (!$filePath || !file_exists($filePath)) {
-                echo $this->view->showErrorMessage("Le fichier spécifié n'existe pas.");
-                return;
-            }
+            $result = [
+                'success' => $success,
+                'message' => $success ?
+                    "Les données ont été importées avec succès depuis la base de données." :
+                    "Erreur lors de l'importation des données."
+            ];
 
-            // Lire les données du fichier Excel
-            $excelData = $this->model->readExcelFile($filePath);
-
-            // Importer les données
-            $result = $this->importModel->importDataToDatabase($excelData);
-
-            // Récupérer les dernières données importées
-            $importedData = $this->importModel->getImportedData(10);
-
-            // Récupérer la liste des fichiers convertis disponibles
-            $convertedFiles = $this->model->getConvertedExcelFiles();
-
-            // Afficher le tableau de bord avec le message de résultat
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result, $convertedFiles);
+            // Préparer les données et afficher avec le résultat
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
 
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Erreur lors de l'importation : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Gère la conversion des fichiers MPP et leur importation en base
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleConvertFiles($userInfo) {
+        try {
+            // Utiliser la méthode processConversion() du modèle
+            $conversionResult = $this->model->processConversion();
+
+            // Formater le message de résultat
+            $summary = $conversionResult['summary'] ?? [];
+            $message = "Conversion terminée:\n";
+            $message .= "• Fichiers MPP trouvés: " . ($summary['mpp_found'] ?? 0) . "\n";
+            $message .= "• Fichiers MPP convertis: " . ($summary['mpp_converted'] ?? 0) . "\n";
+            $message .= "• Erreurs de conversion: " . ($summary['mpp_errors'] ?? 0) . "\n";
+            $message .= "• Fichiers XLSX trouvés: " . ($summary['xlsx_found'] ?? 0) . "\n";
+            $message .= "• Fichiers XLSX importés: " . ($summary['xlsx_imported'] ?? 0) . "\n";
+            $message .= "• Erreurs d'importation: " . ($summary['xlsx_errors'] ?? 0);
+
+            $result = [
+                'success' => ($summary['mpp_converted'] ?? 0) > 0 || ($summary['xlsx_imported'] ?? 0) > 0,
+                'message' => $message
+            ];
+
+            // Préparer les données et afficher avec le résultat
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+
+        } catch (\Exception $e) {
+            echo $this->view->showErrorMessage("Erreur lors de la conversion : " . $e->getMessage());
         }
     }
 
@@ -151,32 +141,106 @@ class DashboardController {
      */
     private function handleClearData($userInfo) {
         try {
-            // Vider la table
-            $success = $this->importModel->clearTable();
+            // Utiliser la méthode clearData() du modèle
+            $result = $this->model->clearData();
 
-            $result = [
-                'success' => $success,
-                'message' => $success ? "La table de données a été vidée avec succès." : "Erreur lors de la suppression des données."
-            ];
-
-            // Obtenir le chemin du fichier Excel par défaut
-            $filePath = $this->model->getDefaultExcelFile();
-            $fileName = $this->model->getDefaultExcelFileName();
-
-            // Lire les données du fichier Excel
-            $excelData = $this->model->readExcelFile($filePath);
-
-            // Récupérer les dernières données importées (devraient être vides maintenant)
-            $importedData = $this->importModel->getImportedData(10);
-
-            // Récupérer la liste des fichiers convertis disponibles
-            $convertedFiles = $this->model->getConvertedExcelFiles();
-
-            // Afficher le tableau de bord avec le message de résultat
-            echo $this->view->showDashboardWithExcel($userInfo, $fileName, $excelData, $importedData, $result, $convertedFiles);
+            // Préparer les données et afficher avec le résultat
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
 
         } catch (\Exception $e) {
             echo $this->view->showErrorMessage("Erreur lors de la suppression des données : " . $e->getMessage());
         }
+    }
+
+    /**
+     * Gère l'affichage de toutes les données
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleShowAllFiles($userInfo) {
+        try {
+            // Préparer toutes les données pour l'affichage
+            $allData = $this->prepareAllDataForDisplay();
+
+            // Utiliser showAllData de la vue refactorisée
+            echo $this->view->showAllData($userInfo, $allData);
+
+        } catch (\Exception $e) {
+            echo $this->view->showErrorMessage("Erreur lors de la récupération des données : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Prépare les données du dashboard au format attendu par la vue refactorisée
+     *
+     * @return array Données formatées pour DashboardView
+     */
+    private function prepareDashboardData() {
+        $hasData = $this->model->hasData();
+        $dataSummary = $this->model->getDataSummary();
+
+        // Préparer les données d'affichage
+        $displayData = [];
+        $displayTitle = "Aucune donnée disponible";
+
+        if ($hasData) {
+            $recentData = $this->model->getRecentData(10);
+            $displayData = [
+                'Donnees' => [
+                    'headers' => ['Processus', 'Tache', 'Charge', 'Date'],
+                    'rows' => $recentData
+                ]
+            ];
+            $displayTitle = "Données récentes (" . count($recentData) . " entrées)";
+        }
+
+        // Informations sur les fichiers
+        $mppFiles = $this->model->getMppFilesList();
+        $xlsxFiles = $this->model->getXlsxFilesList();
+
+        return [
+            'summary' => $dataSummary,
+            'files_info' => [
+                'mpp_count' => count($mppFiles),
+                'xlsx_count' => count($xlsxFiles)
+            ],
+            'display_data' => $displayData,
+            'display_title' => $displayTitle
+        ];
+    }
+
+    /**
+     * Prépare toutes les données pour l'affichage complet
+     *
+     * @return array Données formatées pour l'affichage de toutes les données
+     */
+    private function prepareAllDataForDisplay() {
+        $allData = $this->model->getAllData();
+        $dataSummary = $this->model->getDataSummary();
+
+        $displayData = [];
+        if (!empty($allData)) {
+            $displayData = [
+                'Donnees' => [
+                    'headers' => ['Processus', 'Tache', 'Charge', 'Date'],
+                    'rows' => $allData
+                ]
+            ];
+        }
+
+        // Informations sur les fichiers
+        $mppFiles = $this->model->getMppFilesList();
+        $xlsxFiles = $this->model->getXlsxFilesList();
+
+        return [
+            'summary' => $dataSummary,
+            'files_info' => [
+                'mpp_count' => count($mppFiles),
+                'xlsx_count' => count($xlsxFiles)
+            ],
+            'display_data' => $displayData,
+            'display_title' => "Toutes les données (" . count($allData) . " entrées)"
+        ];
     }
 }

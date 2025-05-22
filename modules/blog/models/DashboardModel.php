@@ -1,32 +1,29 @@
 <?php
 namespace modules\blog\models;
 
-use Box\Spout\Reader\Common\Creator\ReaderEntityFactory;
-use Box\Spout\Common\Exception\IOException;
-use Box\Spout\Reader\Exception\ReaderNotOpenedException;
-
 /**
- * Classe DashboardModel test
+ * Classe DashboardModel
  *
- * Cette classe gère les données nécessaires pour le tableau de bord.
+ * Cette classe gère les données nécessaires pour le tableau de bord
+ * en déléguant les tâches aux modèles spécialisés.
  */
 class DashboardModel {
     /**
-     * @var \PDO $db Connexion à la base de données
+     * @var ImportModel $importModel Instance pour récupérer les données
      */
-    private $db;
+    private $importModel;
 
     /**
-     * @var string Dossier contenant les fichiers XLSX convertis
+     * @var LectureDossierModel $lectureDossierModel Instance pour la conversion
      */
-    private $convertedFilesFolder = 'C:\Users\a.thevenet\Documents\PROCESSFILETEMP';
+    private $lectureDossierModel;
 
     /**
      * Constructeur du DashboardModel
      */
     public function __construct() {
-        // Connexion à la base de données via SingletonModel
-        $this->db = SingletonModel::getInstance()->getConnection();
+        $this->importModel = new ImportModel();
+        $this->lectureDossierModel = new LectureDossierModel();
     }
 
     /**
@@ -44,160 +41,122 @@ class DashboardModel {
     }
 
     /**
-     * Obtenir la liste de tous les fichiers XLSX dans le dossier des fichiers convertis
+     * Récupère toutes les données depuis la base de données
      *
-     * @return array Liste des chemins des fichiers XLSX
+     * @return array Données de la table Donnees
      */
-    public function getConvertedExcelFiles() {
-        $excelFiles = [];
-
-        // Vérifier si le dossier existe
-        if (!is_dir($this->convertedFilesFolder)) {
-            return $excelFiles;
-        }
-
-        // Parcourir le dossier pour trouver les fichiers XLSX
-        $files = scandir($this->convertedFilesFolder);
-        foreach ($files as $file) {
-            // Ignorer les dossiers spéciaux
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-
-            $filePath = $this->convertedFilesFolder . DIRECTORY_SEPARATOR . $file;
-
-            // Vérifier si c'est un fichier et s'il a l'extension .xlsx
-            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
-                $excelFiles[] = $filePath;
-            }
-        }
-
-        return $excelFiles;
+    public function getAllData() {
+        return $this->importModel->getAllData();
     }
 
     /**
-     * Obtenir le chemin du fichier Excel par défaut
+     * Vérifie si des données sont présentes
      *
-     * Cette méthode retourne maintenant le premier fichier XLSX trouvé dans le dossier
-     * des fichiers convertis, ou le fichier par défaut si aucun fichier converti n'est disponible.
-     *
-     * @return string|null Chemin du fichier par défaut ou null si aucun fichier disponible
+     * @return bool True si des données existent
      */
-    public function getDefaultExcelFile() {
-        // Essayer d'abord de trouver des fichiers XLSX convertis
-        $convertedFiles = $this->getConvertedExcelFiles();
-
-        if (!empty($convertedFiles)) {
-            // Retourner le premier fichier XLSX trouvé
-            return $convertedFiles[0];
-        }
-
-        // Si aucun fichier converti n'est trouvé, essayer le fichier par défaut
-        $defaultFile = 'uploads/planning stage information Antoine Thévenet test 20250418.xlsx';
-
-        if (file_exists($defaultFile)) {
-            return $defaultFile;
-        }
-
-        return null;
+    public function hasData() {
+        return $this->importModel->hasData();
     }
 
     /**
-     * Obtenir le nom du fichier Excel par défaut
+     * Récupère les statistiques des données pour le dashboard
      *
-     * @return string|null Nom du fichier par défaut ou null si aucun fichier disponible
+     * @return array Statistiques basiques
      */
-    public function getDefaultExcelFileName() {
-        $filePath = $this->getDefaultExcelFile();
+    public function getDataSummary() {
+        $donnees = $this->importModel->getAllData();
 
-        if ($filePath) {
-            return basename($filePath);
-        }
-
-        return null;
-    }
-
-    /**
-     * Lire un fichier Excel et retourner son contenu sous forme de tableau
-     *
-     * @param string $filePath Chemin vers le fichier Excel
-     * @return array Données du fichier Excel
-     * @throws IOException Si le fichier ne peut pas être ouvert
-     * @throws ReaderNotOpenedException Si le lecteur n'est pas ouvert
-     */
-    public function readExcelFile($filePath) {
-        // Vérifier si le fichier existe
-        if (!file_exists($filePath)) {
-            throw new IOException("Le fichier $filePath n'existe pas.");
-        }
-
-        // Créer le lecteur en fonction de l'extension du fichier
-        $reader = ReaderEntityFactory::createReaderFromFile($filePath);
-        $reader->open($filePath);
-
-        $data = [];
-
-        // Lire chaque feuille du fichier
-        foreach ($reader->getSheetIterator() as $sheet) {
-            $sheetData = [];
-            $headers = [];
-            $isFirstRow = true;
-
-            // Lire chaque ligne de la feuille
-            foreach ($sheet->getRowIterator() as $rowIndex => $row) {
-                $rowData = $row->toArray();
-
-                // Si c'est la première ligne, on considère que ce sont les en-têtes
-                if ($isFirstRow) {
-                    $headers = $rowData;
-                    $isFirstRow = false;
-                } else {
-                    // Associer les valeurs aux en-têtes
-                    $formattedRow = [];
-                    foreach ($rowData as $cellIndex => $cellValue) {
-                        if (isset($headers[$cellIndex])) {
-                            $formattedRow[$headers[$cellIndex]] = $cellValue;
-                        } else {
-                            $formattedRow["Colonne_$cellIndex"] = $cellValue;
-                        }
-                    }
-                    $sheetData[] = $formattedRow;
-                }
-            }
-
-            $data[$sheet->getName()] = [
-                'headers' => $headers,
-                'rows' => $sheetData
+        if (empty($donnees)) {
+            return [
+                'total_entries' => 0,
+                'date_debut' => null,
+                'date_fin' => null,
+                'processus_uniques' => 0
             ];
         }
 
-        $reader->close();
-        return $data;
+        $dates = array_column($donnees, 'Date');
+        $processus = array_unique(array_column($donnees, 'Processus'));
+
+        return [
+            'total_entries' => count($donnees),
+            'date_debut' => min($dates),
+            'date_fin' => max($dates),
+            'processus_uniques' => count($processus)
+        ];
     }
 
     /**
-     * Lire tous les fichiers Excel convertis et retourner leur contenu fusionné
+     * Lance le processus de conversion des fichiers MPP vers XLSX et importation en BD
      *
-     * @return array Données fusionnées de tous les fichiers Excel
+     * @return array Résultat du processus complet
      */
-    public function readAllConvertedExcelFiles() {
-        $allData = [];
-        $excelFiles = $this->getConvertedExcelFiles();
+    public function processConversion() {
+        $result = $this->lectureDossierModel->processAllFiles();
 
-        foreach ($excelFiles as $filePath) {
-            try {
-                $fileName = basename($filePath);
-                $fileData = $this->readExcelFile($filePath);
+        // Forcer le rechargement des données après la conversion
+        $this->importModel->refreshData();
 
-                // Ajouter les données de ce fichier à l'ensemble des données
-                // en utilisant le nom du fichier comme clé pour distinguer les sources
-                $allData[$fileName] = $fileData;
-            } catch (\Exception $e) {
-                // Logger l'erreur mais continuer avec les autres fichiers
-                error_log("Erreur lors de la lecture du fichier $filePath: " . $e->getMessage());
-            }
-        }
+        return $result;
+    }
 
-        return $allData;
+    /**
+     * Vide la table de données
+     *
+     * @return array Résultat de l'opération
+     */
+    public function clearData() {
+        $success = $this->importModel->clearTable();
+
+        return [
+            'success' => $success,
+            'message' => $success ?
+                "La table de données a été vidée avec succès." :
+                "Erreur lors de la suppression des données."
+        ];
+    }
+
+    /**
+     * Force le rechargement des données depuis la base
+     *
+     * @return bool Succès du rechargement
+     */
+    public function refreshData() {
+        return $this->importModel->refreshData();
+    }
+
+    /**
+     * Récupère des données limitées pour l'affichage (compatibilité)
+     *
+     * @param int $limit Nombre d'entrées à retourner
+     * @return array Données limitées
+     */
+    public function getRecentData($limit = 50) {
+        $donnees = $this->importModel->getAllData();
+
+        // Trier par date décroissante et limiter
+        usort($donnees, function($a, $b) {
+            return strcmp($b['Date'], $a['Date']);
+        });
+
+        return array_slice($donnees, 0, $limit);
+    }
+
+    /**
+     * Obtenir la liste des fichiers MPP disponibles (pour info)
+     *
+     * @return array Liste des fichiers MPP
+     */
+    public function getMppFilesList() {
+        return $this->lectureDossierModel->getMppFiles();
+    }
+
+    /**
+     * Obtenir la liste des fichiers XLSX convertis (pour info)
+     *
+     * @return array Liste des fichiers XLSX
+     */
+    public function getXlsxFilesList() {
+        return $this->lectureDossierModel->getXlsxFiles();
     }
 }
