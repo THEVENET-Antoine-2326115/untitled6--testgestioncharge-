@@ -11,14 +11,14 @@ namespace modules\blog\models;
 class LectureDossierModel {
 
     /**
-     * Dossier source contenant les fichiers MPP
+     * Dossier source contenant les fichiers MPP (à la racine du projet)
      */
-    const MPP_SOURCE_FOLDER = __DIR__ . '/uploads';
+    const MPP_SOURCE_FOLDER = __DIR__ . '/../../../uploads';
 
     /**
      * Dossier de destination pour les fichiers XLSX convertis
      */
-    const XLSX_OUTPUT_FOLDER = __DIR__ . '/uploadsfaux';
+    const XLSX_OUTPUT_FOLDER = __DIR__ . '/../../../converted';
 
     /**
      * Instance du converteur MPP
@@ -34,6 +34,10 @@ class LectureDossierModel {
      * Constructeur
      */
     public function __construct() {
+        $this->console_log("=== INITIALISATION DE LectureDossierModel ===");
+        $this->console_log("Dossier source MPP: " . realpath(self::MPP_SOURCE_FOLDER));
+        $this->console_log("Dossier destination XLSX: " . realpath(self::XLSX_OUTPUT_FOLDER));
+
         // Initialiser le converteur MPP avec le dossier de destination
         $this->mppConverter = new MppConverterModel(self::XLSX_OUTPUT_FOLDER);
 
@@ -42,6 +46,8 @@ class LectureDossierModel {
 
         // S'assurer que les dossiers existent
         $this->ensureDirectoriesExist();
+
+        $this->console_log("=== INITIALISATION TERMINÉE ===");
     }
 
     /**
@@ -50,6 +56,8 @@ class LectureDossierModel {
      * @return array Résultat détaillé du processus
      */
     public function processAllFiles() {
+        $this->console_log("=== DÉBUT DU PROCESSUS COMPLET ===");
+
         $results = [
             'conversion' => [],
             'importation' => [],
@@ -66,11 +74,13 @@ class LectureDossierModel {
         $this->log_message("=== DÉBUT DU PROCESSUS COMPLET ===");
 
         // Étape 1 : Parcourir le dossier source et convertir les fichiers MPP
+        $this->console_log("=== ÉTAPE 1: CONVERSION DES FICHIERS MPP ===");
         $this->log_message("Étape 1 : Conversion des fichiers MPP");
         $conversionResults = $this->convertMppFiles();
         $results['conversion'] = $conversionResults;
 
         // Étape 2 : Parcourir le dossier de destination et importer les fichiers XLSX
+        $this->console_log("=== ÉTAPE 2: IMPORTATION DES FICHIERS XLSX ===");
         $this->log_message("Étape 2 : Importation des fichiers XLSX");
         $importationResults = $this->importXlsxFiles();
         $results['importation'] = $importationResults;
@@ -78,6 +88,7 @@ class LectureDossierModel {
         // Calculer le résumé
         $results['summary'] = $this->calculateSummary($conversionResults, $importationResults);
 
+        $this->console_log("=== FIN DU PROCESSUS COMPLET ===");
         $this->log_message("=== FIN DU PROCESSUS COMPLET ===");
         $this->displaySummary($results['summary']);
 
@@ -92,16 +103,23 @@ class LectureDossierModel {
     private function convertMppFiles() {
         $results = [];
 
+        $this->console_log("=== DÉBUT convertMppFiles() ===");
+        $this->console_log("Parcours du dossier source : " . self::MPP_SOURCE_FOLDER);
         $this->log_message("Parcours du dossier source : " . self::MPP_SOURCE_FOLDER);
 
         // Vérifier que le dossier source existe
         if (!is_dir(self::MPP_SOURCE_FOLDER)) {
-            $this->log_message("ERREUR : Le dossier source n'existe pas : " . self::MPP_SOURCE_FOLDER);
+            $error = "ERREUR : Le dossier source n'existe pas : " . self::MPP_SOURCE_FOLDER;
+            $this->console_log($error);
+            $this->log_message($error);
             return $results;
         }
 
+        $this->console_log("Dossier source trouvé et accessible");
+
         // Lire tous les fichiers du dossier
         $files = scandir(self::MPP_SOURCE_FOLDER);
+        $this->console_log("Nombre de fichiers/dossiers trouvés: " . count($files));
 
         foreach ($files as $file) {
             // Ignorer les dossiers spéciaux
@@ -109,21 +127,27 @@ class LectureDossierModel {
                 continue;
             }
 
+            $this->console_log("Examen du fichier: " . $file);
+
             $filePath = self::MPP_SOURCE_FOLDER . DIRECTORY_SEPARATOR . $file;
 
             // Vérifier si c'est un fichier
             if (!is_file($filePath)) {
+                $this->console_log("Ignoré (pas un fichier) : " . $file);
                 $this->log_message("Ignoré (pas un fichier) : " . $file);
                 continue;
             }
 
             // Déterminer le type de fichier
             $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $this->console_log("Extension détectée pour " . $file . ": " . $fileExtension);
 
             if ($fileExtension === 'mpp') {
+                $this->console_log("✓ Fichier MPP trouvé : " . $file);
                 $this->log_message("Fichier MPP trouvé : " . $file);
 
                 // Lancer la conversion avec MppConverterModel
+                $this->console_log("Lancement de la conversion pour: " . $file);
                 $conversionResult = $this->mppConverter->convertMppToXlsx($filePath);
 
                 $results[$file] = [
@@ -133,11 +157,14 @@ class LectureDossierModel {
                 ];
 
                 if ($conversionResult['success']) {
+                    $this->console_log("✓ Conversion réussie : " . $file . " -> " . $conversionResult['outputFile']);
                     $this->log_message("✓ Conversion réussie : " . $file . " -> " . $conversionResult['outputFile']);
                 } else {
+                    $this->console_log("✗ Erreur conversion : " . $file . " - " . $conversionResult['message']);
                     $this->log_message("✗ Erreur conversion : " . $file . " - " . $conversionResult['message']);
                 }
             } else {
+                $this->console_log("Fichier ignoré (pas MPP) : " . $file . " (extension: " . $fileExtension . ")");
                 $this->log_message("Fichier ignoré (pas MPP) : " . $file . " (extension: " . $fileExtension . ")");
                 $results[$file] = [
                     'type' => $fileExtension,
@@ -147,6 +174,9 @@ class LectureDossierModel {
                 ];
             }
         }
+
+        $this->console_log("=== FIN convertMppFiles() ===");
+        $this->console_log("Nombre de résultats de conversion: " . count($results));
 
         return $results;
     }
@@ -159,16 +189,23 @@ class LectureDossierModel {
     private function importXlsxFiles() {
         $results = [];
 
+        $this->console_log("=== DÉBUT importXlsxFiles() ===");
+        $this->console_log("Parcours du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
         $this->log_message("Parcours du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
 
         // Vérifier que le dossier de destination existe
         if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
-            $this->log_message("ERREUR : Le dossier de destination n'existe pas : " . self::XLSX_OUTPUT_FOLDER);
+            $error = "ERREUR : Le dossier de destination n'existe pas : " . self::XLSX_OUTPUT_FOLDER;
+            $this->console_log($error);
+            $this->log_message($error);
             return $results;
         }
 
+        $this->console_log("Dossier destination trouvé et accessible");
+
         // Lire tous les fichiers du dossier
         $files = scandir(self::XLSX_OUTPUT_FOLDER);
+        $this->console_log("Nombre de fichiers/dossiers trouvés: " . count($files));
 
         foreach ($files as $file) {
             // Ignorer les dossiers spéciaux
@@ -176,21 +213,27 @@ class LectureDossierModel {
                 continue;
             }
 
+            $this->console_log("Examen du fichier: " . $file);
+
             $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
 
             // Vérifier si c'est un fichier
             if (!is_file($filePath)) {
+                $this->console_log("Ignoré (pas un fichier) : " . $file);
                 $this->log_message("Ignoré (pas un fichier) : " . $file);
                 continue;
             }
 
             // Déterminer le type de fichier
             $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $this->console_log("Extension détectée pour " . $file . ": " . $fileExtension);
 
             if ($fileExtension === 'xlsx') {
+                $this->console_log("✓ Fichier XLSX trouvé : " . $file);
                 $this->log_message("Fichier XLSX trouvé : " . $file);
 
                 // Lancer l'importation avec ExcelToBdModel
+                $this->console_log("Lancement de l'importation pour: " . $file);
                 $importResult = $this->excelToBdModel->importExcelToDatabase($filePath);
 
                 $results[$file] = [
@@ -200,11 +243,14 @@ class LectureDossierModel {
                 ];
 
                 if ($importResult['success']) {
+                    $this->console_log("✓ Importation réussie : " . $file . " - " . $importResult['importCount'] . " entrées");
                     $this->log_message("✓ Importation réussie : " . $file . " - " . $importResult['importCount'] . " entrées");
                 } else {
+                    $this->console_log("✗ Erreur importation : " . $file . " - " . $importResult['message']);
                     $this->log_message("✗ Erreur importation : " . $file . " - " . $importResult['message']);
                 }
             } else {
+                $this->console_log("Fichier ignoré (pas XLSX) : " . $file . " (extension: " . $fileExtension . ")");
                 $this->log_message("Fichier ignoré (pas XLSX) : " . $file . " (extension: " . $fileExtension . ")");
                 $results[$file] = [
                     'type' => $fileExtension,
@@ -214,6 +260,9 @@ class LectureDossierModel {
                 ];
             }
         }
+
+        $this->console_log("=== FIN importXlsxFiles() ===");
+        $this->console_log("Nombre de résultats d'importation: " . count($results));
 
         return $results;
     }
@@ -226,6 +275,8 @@ class LectureDossierModel {
      * @return array Résumé calculé
      */
     private function calculateSummary($conversionResults, $importationResults) {
+        $this->console_log("=== CALCUL DU RÉSUMÉ ===");
+
         $summary = [
             'mpp_found' => 0,
             'mpp_converted' => 0,
@@ -259,6 +310,8 @@ class LectureDossierModel {
             }
         }
 
+        $this->console_log("Résumé calculé: " . json_encode($summary));
+
         return $summary;
     }
 
@@ -268,6 +321,7 @@ class LectureDossierModel {
      * @param array $summary Résumé à afficher
      */
     private function displaySummary($summary) {
+        $this->console_log("=== AFFICHAGE DU RÉSUMÉ ===");
         $this->log_message("=== RÉSUMÉ DES OPÉRATIONS ===");
         $this->log_message("Fichiers MPP trouvés : " . $summary['mpp_found']);
         $this->log_message("Fichiers MPP convertis : " . $summary['mpp_converted']);
@@ -282,14 +336,22 @@ class LectureDossierModel {
      * S'assure que les dossiers nécessaires existent
      */
     private function ensureDirectoriesExist() {
+        $this->console_log("=== VÉRIFICATION DES DOSSIERS ===");
+
         if (!is_dir(self::MPP_SOURCE_FOLDER)) {
+            $this->console_log("Création du dossier source : " . self::MPP_SOURCE_FOLDER);
             $this->log_message("Création du dossier source : " . self::MPP_SOURCE_FOLDER);
             mkdir(self::MPP_SOURCE_FOLDER, 0777, true);
+        } else {
+            $this->console_log("Dossier source OK : " . self::MPP_SOURCE_FOLDER);
         }
 
         if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
+            $this->console_log("Création du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
             $this->log_message("Création du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
             mkdir(self::XLSX_OUTPUT_FOLDER, 0777, true);
+        } else {
+            $this->console_log("Dossier destination OK : " . self::XLSX_OUTPUT_FOLDER);
         }
     }
 
@@ -304,18 +366,31 @@ class LectureDossierModel {
     }
 
     /**
+     * Function pour la journalisation dans la console du navigateur
+     *
+     * @param string $message Message à logger
+     */
+    private function console_log($message) {
+        echo "<script>console.log('[LectureDossierModel] " . addslashes($message) . "');</script>";
+    }
+
+    /**
      * Retourne la liste des fichiers MPP dans le dossier source
      *
      * @return array Liste des fichiers MPP
      */
     public function getMppFiles() {
+        $this->console_log("=== getMppFiles() ===");
+
         $mppFiles = [];
 
         if (!is_dir(self::MPP_SOURCE_FOLDER)) {
+            $this->console_log("Dossier source introuvable: " . self::MPP_SOURCE_FOLDER);
             return $mppFiles;
         }
 
         $files = scandir(self::MPP_SOURCE_FOLDER);
+        $this->console_log("Fichiers scannés: " . count($files));
 
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') {
@@ -325,6 +400,7 @@ class LectureDossierModel {
             $filePath = self::MPP_SOURCE_FOLDER . DIRECTORY_SEPARATOR . $file;
 
             if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mpp') {
+                $this->console_log("Fichier MPP trouvé: " . $file);
                 $mppFiles[] = [
                     'name' => $file,
                     'path' => $filePath,
@@ -334,6 +410,7 @@ class LectureDossierModel {
             }
         }
 
+        $this->console_log("Total fichiers MPP: " . count($mppFiles));
         return $mppFiles;
     }
 
@@ -343,13 +420,17 @@ class LectureDossierModel {
      * @return array Liste des fichiers XLSX
      */
     public function getXlsxFiles() {
+        $this->console_log("=== getXlsxFiles() ===");
+
         $xlsxFiles = [];
 
         if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
+            $this->console_log("Dossier destination introuvable: " . self::XLSX_OUTPUT_FOLDER);
             return $xlsxFiles;
         }
 
         $files = scandir(self::XLSX_OUTPUT_FOLDER);
+        $this->console_log("Fichiers scannés: " . count($files));
 
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') {
@@ -359,6 +440,7 @@ class LectureDossierModel {
             $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
 
             if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
+                $this->console_log("Fichier XLSX trouvé: " . $file);
                 $xlsxFiles[] = [
                     'name' => $file,
                     'path' => $filePath,
@@ -368,6 +450,7 @@ class LectureDossierModel {
             }
         }
 
+        $this->console_log("Total fichiers XLSX: " . count($xlsxFiles));
         return $xlsxFiles;
     }
 }

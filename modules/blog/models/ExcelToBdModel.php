@@ -42,6 +42,9 @@ class ExcelToBdModel {
                 ];
             }
 
+            $this->console_log("=== DÉBUT IMPORTATION ===");
+            $this->console_log("Fichier: " . basename($filePath));
+
             // Lire le fichier Excel
             $excelData = $this->readExcelFile($filePath);
 
@@ -53,9 +56,14 @@ class ExcelToBdModel {
                 ];
             }
 
-            // Extraire les données des feuilles nécessaires
+            $this->console_log("Nombre de feuilles trouvées: " . count($excelData));
+
+            // Extraire les données des feuilles
             $taches = $this->extractTasksData($excelData);
             $affectations = $this->extractAssignmentsData($excelData);
+
+            $this->console_log("Tâches extraites: " . count($taches));
+            $this->console_log("Affectations extraites: " . count($affectations));
 
             if (empty($taches)) {
                 return [
@@ -65,11 +73,23 @@ class ExcelToBdModel {
                 ];
             }
 
+            if (empty($affectations)) {
+                return [
+                    'success' => false,
+                    'message' => "Aucune affectation trouvée dans le fichier",
+                    'file' => basename($filePath)
+                ];
+            }
+
             // Croiser les données et calculer les attributions par jour
             $donnees = $this->calculateDailyAssignments($taches, $affectations);
 
+            $this->console_log("Données quotidiennes calculées: " . count($donnees));
+
             // Importer les données dans la base
             $importResult = $this->insertDataToDatabase($donnees);
+
+            $this->console_log("=== FIN IMPORTATION ===");
 
             return [
                 'success' => true,
@@ -80,6 +100,7 @@ class ExcelToBdModel {
             ];
 
         } catch (\Exception $e) {
+            $this->console_log("ERREUR: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => "Erreur lors de l'importation : " . $e->getMessage(),
@@ -111,7 +132,8 @@ class ExcelToBdModel {
                     $rowData = $row->toArray();
 
                     if ($isFirstRow) {
-                        $headers = $rowData;
+                        // Nettoyer les en-têtes (enlever espaces en début/fin)
+                        $headers = array_map('trim', $rowData);
                         $isFirstRow = false;
                     } else {
                         $formattedRow = [];
@@ -129,6 +151,10 @@ class ExcelToBdModel {
                     'headers' => $headers,
                     'rows' => $sheetData
                 ];
+
+                $this->console_log("Feuille " . $sheetIndex . ": " . $sheet->getName() . " (" . count($sheetData) . " lignes)");
+                $this->console_log("En-têtes: " . implode(', ', $headers));
+
                 $sheetIndex++;
             }
 
@@ -136,124 +162,195 @@ class ExcelToBdModel {
             return $data;
 
         } catch (IOException | ReaderNotOpenedException $e) {
+            $this->console_log("Erreur lecture Excel : " . $e->getMessage());
             error_log("Erreur lecture Excel : " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Extrait les données des tâches de la première feuille
+     * Extrait les données des tâches de la feuille Task_Table
      *
      * @param array $excelData Données du fichier Excel
      * @return array Données des tâches avec dates
      */
     private function extractTasksData($excelData) {
-        // La première feuille (index 0) contient les tâches
-        if (!isset($excelData[0]) || !isset($excelData[0]['rows'])) {
+        $this->console_log("=== EXTRACTION DES TÂCHES ===");
+
+        // Chercher la feuille Task_Table
+        $taskSheet = null;
+        foreach ($excelData as $sheet) {
+            if ($sheet['name'] === 'Task_Table') {
+                $taskSheet = $sheet;
+                break;
+            }
+        }
+
+        if (!$taskSheet) {
+            $this->console_log("Feuille Task_Table non trouvée");
             return [];
         }
 
+        $this->console_log("Feuille Task_Table trouvée avec " . count($taskSheet['rows']) . " lignes");
+
         $taches = [];
-        foreach ($excelData[0]['rows'] as $row) {
-            // Vérifier que les colonnes nécessaires existent
-            if (!isset($row['Nom']) || !isset($row['Début']) || !isset($row['Fin'])) {
-                continue;
-            }
+        foreach ($taskSheet['rows'] as $row) {
+            // Chercher les colonnes nécessaires (flexibilité pour les noms)
+            $nom = $row['Nom de la tâche'] ?? $row['Task Name'] ?? null;
+            $debut = $row['Start'] ?? $row['Début'] ?? null;
+            $fin = $row['Finish'] ?? $row['Fin'] ?? null;
 
             // Ignorer les lignes vides ou invalides
-            if (empty($row['Nom']) || empty($row['Début']) || empty($row['Fin'])) {
+            if (empty($nom) || empty($debut) || empty($fin)) {
                 continue;
             }
 
+            $this->console_log("Tâche trouvée: " . $nom . " (" . $debut . " → " . $fin . ")");
+
             $taches[] = [
-                'nom' => trim($row['Nom']),
-                'debut' => $this->parseDate($row['Début']),
-                'fin' => $this->parseDate($row['Fin'])
+                'nom' => trim($nom),
+                'debut' => $this->parseDate($debut),
+                'fin' => $this->parseDate($fin)
             ];
         }
 
+        $this->console_log("Total tâches extraites: " . count($taches));
         return $taches;
     }
 
     /**
-     * Extrait les données d'affectation de la troisième feuille
+     * Extrait les données d'affectation de la feuille Assignment_Table
      *
      * @param array $excelData Données du fichier Excel
      * @return array Données des affectations
      */
     private function extractAssignmentsData($excelData) {
-        // La troisième feuille (index 2) contient les affectations
-        if (!isset($excelData[2]) || !isset($excelData[2]['rows'])) {
+        $this->console_log("=== EXTRACTION DES AFFECTATIONS ===");
+
+        // Chercher la feuille Assignment_Table
+        $assignmentSheet = null;
+        foreach ($excelData as $sheet) {
+            if ($sheet['name'] === 'Assignment_Table') {
+                $assignmentSheet = $sheet;
+                break;
+            }
+        }
+
+        if (!$assignmentSheet) {
+            $this->console_log("Feuille Assignment_Table non trouvée");
             return [];
         }
 
+        $this->console_log("Feuille Assignment_Table trouvée avec " . count($assignmentSheet['rows']) . " lignes");
+
         $affectations = [];
-        foreach ($excelData[2]['rows'] as $row) {
-            // Vérifier que les colonnes nécessaires existent
-            if (!isset($row['Nom de la tâche']) || !isset($row['Nom de la ressource']) || !isset($row['Capacité'])) {
-                continue;
-            }
+        foreach ($assignmentSheet['rows'] as $row) {
+            // Chercher les colonnes nécessaires
+            $tache = $row['Task name'] ?? $row['Nom de la tâche'] ?? null;
+            $ressource = $row['Resource name'] ?? $row['Nom de la ressource'] ?? null;
+            $work = $row['Work'] ?? $row['Travail'] ?? null;
+            $duration = $row['Duration'] ?? $row['Durée'] ?? null;
 
             // Ignorer les lignes vides
-            if (empty($row['Nom de la tâche']) || empty($row['Nom de la ressource'])) {
+            if (empty($tache) || empty($ressource) || empty($work) || empty($duration)) {
                 continue;
             }
 
-            $capacite = $this->parseCapacity($row['Capacité']);
+            // Calculer la charge
+            $charge = $this->calculateCharge($work, $duration);
+
+            $this->console_log("Affectation: " . $tache . " → " . $ressource . " (" . $work . "/" . $duration . " = " . $charge . ")");
 
             $affectations[] = [
-                'tache' => trim($row['Nom de la tâche']),
-                'ressource' => trim($row['Nom de la ressource']),
-                'capacite' => $capacite
+                'tache' => trim($tache),
+                'ressource' => trim($ressource),
+                'charge' => $charge
             ];
         }
 
+        $this->console_log("Total affectations extraites: " . count($affectations));
         return $affectations;
+    }
+
+    /**
+     * Calcule la charge à partir du work et de la duration
+     *
+     * @param string $work Ex: "70h", "14 hrs"
+     * @param string $duration Ex: "10 days", "2 days"
+     * @return float Charge calculée (nombre de personnes)
+     */
+    private function calculateCharge($work, $duration) {
+        // Extraire les heures du work
+        preg_match('/(\d+(?:\.\d+)?)/', $work, $workMatches);
+        $heures = isset($workMatches[1]) ? floatval($workMatches[1]) : 0;
+
+        // Extraire les jours de la duration
+        preg_match('/(\d+(?:\.\d+)?)/', $duration, $durationMatches);
+        $jours = isset($durationMatches[1]) ? floatval($durationMatches[1]) : 1;
+
+        if ($jours == 0) {
+            return 0;
+        }
+
+        // Calculer heures par jour
+        $heuresParJour = $heures / $jours;
+
+        // Calculer la charge (1 personne = 7h/jour)
+        $charge = $heuresParJour / 7;
+
+        $this->console_log("Calcul charge: " . $heures . "h ÷ " . $jours . "j = " . $heuresParJour . "h/j ÷ 7 = " . $charge);
+
+        return $charge;
     }
 
     /**
      * Calcule les attributions quotidiennes en croisant tâches et affectations
      *
      * @param array $taches Liste des tâches avec dates
-     * @param array $affectations Liste des affectations avec capacités
+     * @param array $affectations Liste des affectations avec charges calculées
      * @return array Données formatées pour insertion en base
      */
     private function calculateDailyAssignments($taches, $affectations) {
+        $this->console_log("=== CALCUL DES ATTRIBUTIONS QUOTIDIENNES ===");
+
         $donnees = [];
 
         // Pour chaque tâche, calculer les jours d'attribution
         foreach ($taches as $tache) {
+            $this->console_log("Traitement tâche: " . $tache['nom']);
+
             // Trouver les affectations correspondantes à cette tâche
             $affectationsTache = array_filter($affectations, function($affectation) use ($tache) {
                 return $affectation['tache'] === $tache['nom'];
             });
 
-            // Si aucune affectation trouvée, créer une entrée par défaut
             if (empty($affectationsTache)) {
-                $affectationsTache = [[
-                    'tache' => $tache['nom'],
-                    'ressource' => 'Non assigné',
-                    'capacite' => 0
-                ]];
+                $this->console_log("Aucune affectation trouvée pour: " . $tache['nom']);
+                continue;
             }
+
+            $this->console_log("Affectations trouvées: " . count($affectationsTache));
 
             // Pour chaque affectation de cette tâche
             foreach ($affectationsTache as $affectation) {
                 // Calculer tous les jours ouvrés entre début et fin
                 $joursOuvres = $this->getWorkingDaysBetween($tache['debut'], $tache['fin']);
 
-                // Créer une entrée pour chaque jour ouvré avec la charge complète
+                $this->console_log("Jours ouvrés pour " . $tache['nom'] . ": " . count($joursOuvres));
+
+                // Créer une entrée pour chaque jour ouvré avec la charge calculée
                 foreach ($joursOuvres as $jour) {
                     $donnees[] = [
                         'processus' => substr($affectation['ressource'], 0, 40), // Limité à 40 caractères
                         'tache' => substr($tache['nom'], 0, 200), // Limité à 200 caractères
-                        'charge' => $affectation['capacite'], // Charge complète pour chaque jour
+                        'charge' => $affectation['charge'], // Charge calculée (nombre de personnes)
                         'date' => $jour->format('Y-m-d')
                     ];
                 }
             }
         }
 
+        $this->console_log("Total entrées quotidiennes générées: " . count($donnees));
         return $donnees;
     }
 
@@ -264,6 +361,8 @@ class ExcelToBdModel {
      * @return array Résultat de l'insertion
      */
     private function insertDataToDatabase($donnees) {
+        $this->console_log("=== INSERTION EN BASE ===");
+
         $stmt = $this->db->prepare("INSERT INTO Donnees (Processus, Tache, Charge, Date) VALUES (:processus, :tache, :charge, :date)");
 
         $importCount = 0;
@@ -279,9 +378,12 @@ class ExcelToBdModel {
                 $importCount++;
             } catch (\PDOException $e) {
                 $errorCount++;
+                $this->console_log("Erreur insertion: " . $e->getMessage());
                 error_log("Erreur insertion BD: " . $e->getMessage() . " - Données: " . json_encode($donnee));
             }
         }
+
+        $this->console_log("Insertion terminée: " . $importCount . " réussies, " . $errorCount . " erreurs");
 
         return [
             'importCount' => $importCount,
@@ -291,45 +393,50 @@ class ExcelToBdModel {
     }
 
     /**
-     * Parse une date depuis le format du fichier Excel
+     * Parse une date depuis le format du fichier Excel GroupDocs
      *
-     * @param string $dateStr Date sous forme de chaîne
+     * @param string $dateStr Date sous forme de chaîne (ex: "Mon 3/17/25")
      * @return \DateTime|null Objet DateTime ou null si parsing échoue
      */
     private function parseDate($dateStr) {
         try {
-            // Format attendu: "07 Avril 2025 09:00"
-            $moisFr = [
-                'Janvier' => 'January', 'Février' => 'February', 'Mars' => 'March',
-                'Avril' => 'April', 'Mai' => 'May', 'Juin' => 'June',
-                'Juillet' => 'July', 'Août' => 'August', 'Septembre' => 'September',
-                'Octobre' => 'October', 'Novembre' => 'November', 'Décembre' => 'December'
+            // Format GroupDocs: "Mon 3/17/25"
+            // Enlever le jour de la semaine si présent
+            $dateStr = preg_replace('/^[A-Za-z]{3}\s+/', '', trim($dateStr));
+
+            // Essayer différents formats
+            $formats = [
+                'm/d/y',    // 3/17/25
+                'm/d/Y',    // 3/17/2025
+                'd/m/y',    // 17/3/25
+                'd/m/Y',    // 17/3/2025
+                'Y-m-d',    // 2025-03-17
+                'd-m-Y'     // 17-03-2025
             ];
 
-            // Remplacer le mois français par l'anglais
-            $dateEn = $dateStr;
-            foreach ($moisFr as $fr => $en) {
-                $dateEn = str_replace($fr, $en, $dateEn);
+            foreach ($formats as $format) {
+                $date = \DateTime::createFromFormat($format, $dateStr);
+                if ($date !== false) {
+                    $this->console_log("Date parsée: " . $dateStr . " → " . $date->format('Y-m-d'));
+                    return $date;
+                }
             }
 
-            return new \DateTime($dateEn);
+            // Si aucun format ne marche, essayer avec strtotime
+            $timestamp = strtotime($dateStr);
+            if ($timestamp !== false) {
+                $date = new \DateTime();
+                $date->setTimestamp($timestamp);
+                $this->console_log("Date parsée (strtotime): " . $dateStr . " → " . $date->format('Y-m-d'));
+                return $date;
+            }
 
         } catch (\Exception $e) {
+            $this->console_log("Erreur parsing date '$dateStr': " . $e->getMessage());
             error_log("Erreur parsing date '$dateStr': " . $e->getMessage());
-            return null;
         }
-    }
 
-    /**
-     * Parse la capacité depuis le format du fichier Excel
-     *
-     * @param string $capacityStr Capacité sous forme de chaîne (ex: "20%")
-     * @return float Capacité en décimal (ex: 0.2)
-     */
-    private function parseCapacity($capacityStr) {
-        // Enlever le symbole % et convertir en décimal
-        $capacity = str_replace('%', '', trim($capacityStr));
-        return floatval($capacity) / 100;
+        return null;
     }
 
     /**
@@ -356,5 +463,14 @@ class ExcelToBdModel {
         }
 
         return $joursOuvres;
+    }
+
+    /**
+     * Function pour la journalisation dans la console du navigateur
+     *
+     * @param string $message Message à logger
+     */
+    private function console_log($message) {
+        echo "<script>console.log('[ExcelToBdModel] " . addslashes($message) . "');</script>";
     }
 }
