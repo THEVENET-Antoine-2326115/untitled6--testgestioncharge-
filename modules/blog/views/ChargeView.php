@@ -110,7 +110,7 @@ class ChargeView {
                     <?php if (!empty($chartPaths['production'])): ?>
                         <div class="graphique-section">
                             <h3>Production</h3>
-                            <img src="_assets/images/charts/<?php echo htmlspecialchars($chartPaths['production']); ?>"
+                            <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['production']); ?>"
                                  alt="Graphique charge Production" class="chart-image">
                             <p class="chart-description">Évolution des charges pour Chaudronnerie, Soudure et Contrôle</p>
                         </div>
@@ -126,7 +126,7 @@ class ChargeView {
                     <?php if (!empty($chartPaths['etude'])): ?>
                         <div class="graphique-section">
                             <h3>Étude</h3>
-                            <img src="_assets/images/charts/<?php echo htmlspecialchars($chartPaths['etude']); ?>"
+                            <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['etude']); ?>"
                                  alt="Graphique charge Étude" class="chart-image">
                             <p class="chart-description">Évolution des charges pour Calcul et Projet</p>
                         </div>
@@ -142,7 +142,7 @@ class ChargeView {
                     <?php if (!empty($chartPaths['methode'])): ?>
                         <div class="graphique-section">
                             <h3>Méthode</h3>
-                            <img src="_assets/images/charts/<?php echo htmlspecialchars($chartPaths['methode']); ?>"
+                            <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['methode']); ?>"
                                  alt="Graphique charge Méthode" class="chart-image">
                             <p class="chart-description">Évolution de la charge pour Méthode</p>
                         </div>

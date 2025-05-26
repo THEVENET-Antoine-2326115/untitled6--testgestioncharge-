@@ -3,6 +3,7 @@ namespace modules\blog\controllers;
 
 use modules\blog\models\DashboardModel;
 use modules\blog\models\ChargeModel;
+use modules\blog\models\GraphGeneratorModel;
 use modules\blog\views\ChargeView;
 
 /**
@@ -13,6 +14,7 @@ use modules\blog\views\ChargeView;
 class ChargeController {
     private $dashboardModel;
     private $chargeModel;
+    private $graphGenerator;
     private $chargeView;
 
     /**
@@ -21,6 +23,7 @@ class ChargeController {
     public function __construct() {
         $this->dashboardModel = new DashboardModel();
         $this->chargeModel = new ChargeModel();
+        $this->graphGenerator = new GraphGeneratorModel(); // AJOUT
         $this->chargeView = new ChargeView();
     }
 
@@ -54,13 +57,11 @@ class ChargeController {
             // Formater les résultats pour l'affichage
             $resultatsFormattés = $this->chargeModel->formaterResultats($resultatAnalyse);
 
-
+            // GÉNÉRATION DES GRAPHIQUES - CORRECTION
             $chartPaths = [];
             if (isset($resultatsFormattés['graphiquesData'])) {
                 $chartPaths = $this->graphGenerator->generateAllCharts($resultatsFormattés['graphiquesData']);
             }
-
-
 
             // Obtenir un résumé des données pour l'affichage
             $dataSummary = $this->dashboardModel->getDataSummary();

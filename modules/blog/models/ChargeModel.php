@@ -270,11 +270,70 @@ class ChargeModel {
             }
         }
 
+        // NOUVEAU : Préparer les données pour les graphiques
+        $graphiquesData = $this->prepareGraphicsData($resultatAnalyse['chargeParSemaine']);
+
         return [
             'donneesMensuelles' => $donneesMensuellesFormat,
             'chargeParSemaine' => $chargeParSemaineFormatee,
             'dateDebut' => $resultatAnalyse['dateDebut']->format('d/m/Y'),
-            'dateFin' => $resultatAnalyse['dateFin']->format('d/m/Y')
+            'dateFin' => $resultatAnalyse['dateFin']->format('d/m/Y'),
+            'graphiquesData' => $graphiquesData // AJOUT
         ];
+    }
+
+    /**
+     * Prépare les données pour les graphiques JPGraph
+     *
+     * @param array $chargeParSemaine Données de charge par semaine
+     * @return array Données formatées pour JPGraph
+     */
+    private function prepareGraphicsData($chargeParSemaine) {
+        // Mapping des processus vers les catégories
+        $mappingProcessus = [
+            'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
+            'etude' => ['CALC', 'PROJ'],
+            'methode' => ['METH']
+        ];
+
+        // Labels des semaines et initialisation des données
+        $semainesLabels = [];
+        $donnees = [
+            'production' => ['CHAUDNQ' => [], 'SOUDNQ' => [], 'CT' => []],
+            'etude' => ['CALC' => [], 'PROJ' => []],
+            'methode' => ['METH' => []]
+        ];
+
+        // Debug
+        echo "<script>console.log('[ChargeModel] Préparation données graphiques...');</script>";
+        echo "<script>console.log('[ChargeModel] Nombre de semaines: " . count($chargeParSemaine) . "');</script>";
+
+        // Parcourir chaque semaine
+        foreach ($chargeParSemaine as $semaine) {
+            // Créer le label de la semaine
+            $label = $semaine['debut']->format('d/m') . ' - ' . $semaine['fin']->format('d/m');
+            $semainesLabels[] = $label;
+
+            echo "<script>console.log('[ChargeModel] Semaine: " . $label . "');</script>";
+
+            // Initialiser les valeurs à 0 pour cette semaine
+            foreach ($mappingProcessus as $categorie => $processus) {
+                foreach ($processus as $proc) {
+                    $charge = $semaine['processus'][$proc] ?? 0;
+                    $donnees[$categorie][$proc][] = $charge;
+
+                    if ($charge > 0) {
+                        echo "<script>console.log('[ChargeModel] " . $proc . " (" . $categorie . "): " . $charge . "');</script>";
+                    }
+                }
+            }
+        }
+
+        $graphiquesData = array_merge($donnees, ['semaines_labels' => $semainesLabels]);
+
+        echo "<script>console.log('[ChargeModel] Données graphiques préparées');</script>";
+        echo "<script>console.log('[ChargeModel] Labels: " . json_encode($semainesLabels) . "');</script>";
+
+        return $graphiquesData;
     }
 }

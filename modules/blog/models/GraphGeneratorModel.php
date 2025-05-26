@@ -1,17 +1,22 @@
 <?php
 namespace modules\blog\models;
 
+// Utiliser les namespaces modernes d'amenadiel/jpgraph
+use Amenadiel\JpGraph\Graph\Graph;
+use Amenadiel\JpGraph\Plot\LinePlot;
+
 /**
  * Classe GraphGeneratorModel
  *
  * Cette classe gère la génération des graphiques JPGraph pour l'analyse de charge.
+ * Version compatible avec amenadiel/jpgraph (namespaces)
  */
 class GraphGeneratorModel {
 
     /**
      * Dossier de stockage des graphiques générés
      */
-    const CHARTS_FOLDER = '_assets/images/charts/';
+    const CHARTS_FOLDER = '_assets/images/';
 
     /**
      * Largeur des graphiques
@@ -24,10 +29,39 @@ class GraphGeneratorModel {
     const CHART_HEIGHT = 400;
 
     /**
+     * JPGraph chargé ou non
+     */
+    private $jpgraphLoaded = false;
+
+    /**
      * Constructeur
      */
     public function __construct() {
         $this->ensureChartsDirectoryExists();
+        $this->jpgraphLoaded = $this->loadJpGraph();
+    }
+
+    /**
+     * Charge JPGraph avec les namespaces modernes
+     *
+     * @return bool True si JPGraph est chargé avec succès
+     */
+    private function loadJpGraph() {
+        try {
+            $this->console_log("Tentative de chargement JPGraph moderne...");
+
+            // Vérifier que les classes sont disponibles via Composer
+            if (class_exists('Amenadiel\\JpGraph\\Graph\\Graph') && class_exists('Amenadiel\\JpGraph\\Plot\\LinePlot')) {
+                $this->console_log("Classes JPGraph modernes disponibles");
+                return true;
+            } else {
+                $this->console_log("ERREUR: Classes JPGraph modernes non disponibles");
+                return false;
+            }
+        } catch (\Exception $e) {
+            $this->console_log("ERREUR chargement JPGraph: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -38,6 +72,13 @@ class GraphGeneratorModel {
      */
     public function generateAllCharts($graphiquesData) {
         $this->console_log("=== GÉNÉRATION GRAPHIQUES ===");
+        $this->console_log("JPGraph chargé: " . ($this->jpgraphLoaded ? 'OUI' : 'NON'));
+
+        if (!$this->jpgraphLoaded) {
+            $this->console_log("JPGraph non disponible, génération d'images d'erreur");
+            return $this->generateErrorImages("JPGraph non installé ou non chargé");
+        }
+
         $this->console_log("Données reçues: " . json_encode(array_keys($graphiquesData)));
 
         $chartPaths = [
@@ -47,15 +88,13 @@ class GraphGeneratorModel {
         ];
 
         try {
-            // Vérifier que JPGraph est disponible
-            if (!$this->isJpGraphAvailable()) {
-                throw new \Exception('JPGraph n\'est pas installé. Exécutez: composer require amenadiel/jpgraph');
-            }
-
             // Debug: vérifier les données reçues
             if (isset($graphiquesData['semaines_labels'])) {
                 $this->console_log("Semaines disponibles: " . count($graphiquesData['semaines_labels']));
                 $this->console_log("Labels: " . json_encode($graphiquesData['semaines_labels']));
+            } else {
+                $this->console_log("ERREUR: Pas de semaines_labels dans les données");
+                return $this->generateErrorImages("Données semaines_labels manquantes");
             }
 
             // Vérifier chaque catégorie avant génération
@@ -87,7 +126,11 @@ class GraphGeneratorModel {
                         }
                     } else {
                         $this->console_log("Aucune donnée pour " . $cat . ", graphique non généré");
+                        $chartPaths[$cat] = $this->createErrorImage($cat, 'Aucune donnée disponible');
                     }
+                } else {
+                    $this->console_log("Catégorie " . $cat . " manquante dans les données");
+                    $chartPaths[$cat] = $this->createErrorImage($cat, 'Catégorie manquante');
                 }
             }
 
@@ -95,7 +138,6 @@ class GraphGeneratorModel {
 
         } catch (\Exception $e) {
             $this->console_log("Erreur génération graphiques: " . $e->getMessage());
-            // Générer des images d'erreur à la place
             $chartPaths = $this->generateErrorImages($e->getMessage());
         }
 
@@ -129,70 +171,64 @@ class GraphGeneratorModel {
             return $this->createErrorImage('production', 'Aucune donnée de production');
         }
 
-        // Créer le graphique
-        $graph = new \Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
-        $graph->SetScale('textlin');
-        $graph->SetMargin(60, 30, 30, 70);
-
-        // Titre et labels
-        $graph->title->Set('Charge Production par Semaine');
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 14);
-        $graph->xaxis->title->Set('Semaines');
-        $graph->yaxis->title->Set('Nombre de personnes');
-        $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
-
-        $hasData = false;
-
-        // Créer les lignes - conditions plus permissives
-        if (!empty($chaudron_data)) {
-            $lineplot1 = new \LinePlot($chaudron_data);
-            $lineplot1->SetColor('red');
-            $lineplot1->SetWeight(3);
-            $lineplot1->SetLegend('Chaudronnerie');
-            $lineplot1->mark->SetType(MARK_FILLEDCIRCLE);
-            $lineplot1->mark->SetFillColor('red');
-            $graph->Add($lineplot1);
-            $hasData = true;
-            $this->console_log("Ligne chaudronnerie ajoutée");
-        }
-
-        if (!empty($soudure_data)) {
-            $lineplot2 = new \LinePlot($soudure_data);
-            $lineplot2->SetColor('blue');
-            $lineplot2->SetWeight(3);
-            $lineplot2->SetLegend('Soudure');
-            $lineplot2->mark->SetType(MARK_FILLEDCIRCLE);
-            $lineplot2->mark->SetFillColor('blue');
-            $graph->Add($lineplot2);
-            $hasData = true;
-            $this->console_log("Ligne soudure ajoutée");
-        }
-
-        if (!empty($ct_data)) {
-            $lineplot3 = new \LinePlot($ct_data);
-            $lineplot3->SetColor('green');
-            $lineplot3->SetWeight(3);
-            $lineplot3->SetLegend('Contrôle');
-            $lineplot3->mark->SetType(MARK_FILLEDCIRCLE);
-            $lineplot3->mark->SetFillColor('green');
-            $graph->Add($lineplot3);
-            $hasData = true;
-            $this->console_log("Ligne CT ajoutée");
-        }
-
-        if (!$hasData) {
-            $this->console_log("Aucune ligne ajoutée, création image d'erreur");
-            return $this->createErrorImage('production', 'Aucune ligne de donnée valide');
-        }
-
-        // Légende
-        $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
-
-        // Sauvegarder l'image
         try {
+            // Créer le graphique avec namespace moderne
+            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph->SetScale('textlin');
+            $graph->SetMargin(60, 30, 30, 70);
+
+            // Titre et labels
+            $graph->title->Set('Charge Production par Semaine');
+            $graph->xaxis->title->Set('Semaines');
+            $graph->yaxis->title->Set('Nombre de personnes');
+            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
+
+            $hasData = false;
+
+            // Créer les lignes
+            if (!empty($chaudron_data)) {
+                $lineplot1 = new LinePlot($chaudron_data);
+                $lineplot1->SetColor('red');
+                $lineplot1->SetWeight(3);
+                $lineplot1->SetLegend('Chaudronnerie');
+                $graph->Add($lineplot1);
+                $hasData = true;
+                $this->console_log("Ligne chaudronnerie ajoutée");
+            }
+
+            if (!empty($soudure_data)) {
+                $lineplot2 = new LinePlot($soudure_data);
+                $lineplot2->SetColor('blue');
+                $lineplot2->SetWeight(3);
+                $lineplot2->SetLegend('Soudure');
+                $graph->Add($lineplot2);
+                $hasData = true;
+                $this->console_log("Ligne soudure ajoutée");
+            }
+
+            if (!empty($ct_data)) {
+                $lineplot3 = new LinePlot($ct_data);
+                $lineplot3->SetColor('green');
+                $lineplot3->SetWeight(3);
+                $lineplot3->SetLegend('Contrôle');
+                $graph->Add($lineplot3);
+                $hasData = true;
+                $this->console_log("Ligne CT ajoutée");
+            }
+
+            if (!$hasData) {
+                $this->console_log("Aucune ligne ajoutée, création image d'erreur");
+                return $this->createErrorImage('production', 'Aucune ligne de donnée valide');
+            }
+
+            // Légende
+            $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
+
+            // Sauvegarder l'image
             $graph->Stroke($filepath);
             $this->console_log("Graphique production sauvegardé: " . $filename);
             return $filename;
+
         } catch (\Exception $e) {
             $this->console_log("Erreur sauvegarde production: " . $e->getMessage());
             return $this->createErrorImage('production', 'Erreur sauvegarde: ' . $e->getMessage());
@@ -218,64 +254,49 @@ class GraphGeneratorModel {
         $this->console_log("Calcul: " . json_encode($calc_data));
         $this->console_log("Projet: " . json_encode($proj_data));
 
-        // Vérifier qu'il y a au moins des données
         if (empty($calc_data) && empty($proj_data)) {
-            $this->console_log("Aucune donnée étude, création image vide");
             return $this->createErrorImage('etude', 'Aucune donnée d\'étude');
         }
 
-        // Créer le graphique
-        $graph = new \Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
-        $graph->SetScale('textlin');
-        $graph->SetMargin(60, 30, 30, 70);
-
-        // Titre et labels
-        $graph->title->Set('Charge Étude par Semaine');
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 14);
-        $graph->xaxis->title->Set('Semaines');
-        $graph->yaxis->title->Set('Nombre de personnes');
-        $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
-
-        $hasData = false;
-
-        // Créer les lignes
-        if (!empty($calc_data)) {
-            $lineplot1 = new \LinePlot($calc_data);
-            $lineplot1->SetColor('orange');
-            $lineplot1->SetWeight(3);
-            $lineplot1->SetLegend('Calcul');
-            $lineplot1->mark->SetType(MARK_FILLEDCIRCLE);
-            $lineplot1->mark->SetFillColor('orange');
-            $graph->Add($lineplot1);
-            $hasData = true;
-            $this->console_log("Ligne calcul ajoutée");
-        }
-
-        if (!empty($proj_data)) {
-            $lineplot2 = new \LinePlot($proj_data);
-            $lineplot2->SetColor('purple');
-            $lineplot2->SetWeight(3);
-            $lineplot2->SetLegend('Projet');
-            $lineplot2->mark->SetType(MARK_FILLEDCIRCLE);
-            $lineplot2->mark->SetFillColor('purple');
-            $graph->Add($lineplot2);
-            $hasData = true;
-            $this->console_log("Ligne projet ajoutée");
-        }
-
-        if (!$hasData) {
-            $this->console_log("Aucune ligne ajoutée pour étude");
-            return $this->createErrorImage('etude', 'Aucune ligne de donnée valide');
-        }
-
-        // Légende
-        $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
-
-        // Sauvegarder l'image
         try {
+            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph->SetScale('textlin');
+            $graph->SetMargin(60, 30, 30, 70);
+
+            $graph->title->Set('Charge Étude par Semaine');
+            $graph->xaxis->title->Set('Semaines');
+            $graph->yaxis->title->Set('Nombre de personnes');
+            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
+
+            $hasData = false;
+
+            if (!empty($calc_data)) {
+                $lineplot1 = new LinePlot($calc_data);
+                $lineplot1->SetColor('orange');
+                $lineplot1->SetWeight(3);
+                $lineplot1->SetLegend('Calcul');
+                $graph->Add($lineplot1);
+                $hasData = true;
+            }
+
+            if (!empty($proj_data)) {
+                $lineplot2 = new LinePlot($proj_data);
+                $lineplot2->SetColor('purple');
+                $lineplot2->SetWeight(3);
+                $lineplot2->SetLegend('Projet');
+                $graph->Add($lineplot2);
+                $hasData = true;
+            }
+
+            if (!$hasData) {
+                return $this->createErrorImage('etude', 'Aucune ligne de donnée valide');
+            }
+
+            $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
             $this->console_log("Graphique étude sauvegardé: " . $filename);
             return $filename;
+
         } catch (\Exception $e) {
             $this->console_log("Erreur sauvegarde étude: " . $e->getMessage());
             return $this->createErrorImage('etude', 'Erreur sauvegarde: ' . $e->getMessage());
@@ -294,46 +315,33 @@ class GraphGeneratorModel {
         $filename = 'methode_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
-        // Données du processus
         $meth_data = $data['methode']['METH'] ?? [];
 
-        $this->console_log("Méthode: " . json_encode($meth_data));
-
-        // Vérifier qu'il y a des données
         if (empty($meth_data)) {
-            $this->console_log("Aucune donnée méthode, création image vide");
             return $this->createErrorImage('methode', 'Aucune donnée de méthode');
         }
 
-        // Créer le graphique
-        $graph = new \Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
-        $graph->SetScale('textlin');
-        $graph->SetMargin(60, 30, 30, 70);
-
-        // Titre et labels
-        $graph->title->Set('Charge Méthode par Semaine');
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 14);
-        $graph->xaxis->title->Set('Semaines');
-        $graph->yaxis->title->Set('Nombre de personnes');
-        $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
-
-        $lineplot1 = new \LinePlot($meth_data);
-        $lineplot1->SetColor('brown');
-        $lineplot1->SetWeight(3);
-        $lineplot1->SetLegend('Méthode');
-        $lineplot1->mark->SetType(MARK_FILLEDCIRCLE);
-        $lineplot1->mark->SetFillColor('brown');
-        $graph->Add($lineplot1);
-        $this->console_log("Ligne méthode ajoutée");
-
-        // Légende
-        $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
-
-        // Sauvegarder l'image
         try {
+            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph->SetScale('textlin');
+            $graph->SetMargin(60, 30, 30, 70);
+
+            $graph->title->Set('Charge Méthode par Semaine');
+            $graph->xaxis->title->Set('Semaines');
+            $graph->yaxis->title->Set('Nombre de personnes');
+            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
+
+            $lineplot1 = new LinePlot($meth_data);
+            $lineplot1->SetColor('brown');
+            $lineplot1->SetWeight(3);
+            $lineplot1->SetLegend('Méthode');
+            $graph->Add($lineplot1);
+
+            $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
             $this->console_log("Graphique méthode sauvegardé: " . $filename);
             return $filename;
+
         } catch (\Exception $e) {
             $this->console_log("Erreur sauvegarde méthode: " . $e->getMessage());
             return $this->createErrorImage('methode', 'Erreur sauvegarde: ' . $e->getMessage());
@@ -391,26 +399,8 @@ class GraphGeneratorModel {
         imagepng($im, $filepath);
         imagedestroy($im);
 
+        $this->console_log("Image d'erreur créée: " . $filename);
         return $filename;
-    }
-
-    /**
-     * Vérifie si JPGraph est disponible
-     *
-     * @return bool True si JPGraph est disponible
-     */
-    private function isJpGraphAvailable() {
-        // Essayer de charger JPGraph
-        $jpgraphPath = __DIR__ . '/../../../vendor/amenadiel/jpgraph/src/jpgraph.php';
-        $jpgraphLinePath = __DIR__ . '/../../../vendor/amenadiel/jpgraph/src/jpgraph_line.php';
-
-        if (file_exists($jpgraphPath) && file_exists($jpgraphLinePath)) {
-            require_once $jpgraphPath;
-            require_once $jpgraphLinePath;
-            return class_exists('Graph');
-        }
-
-        return false;
     }
 
     /**
@@ -420,32 +410,6 @@ class GraphGeneratorModel {
         if (!is_dir(self::CHARTS_FOLDER)) {
             mkdir(self::CHARTS_FOLDER, 0777, true);
             $this->console_log("Dossier graphiques créé: " . self::CHARTS_FOLDER);
-        }
-    }
-
-    /**
-     * Nettoie les anciens graphiques (optionnel)
-     *
-     * @param int $maxAge Age maximum en secondes (défaut: 1 heure)
-     */
-    public function cleanOldCharts($maxAge = 3600) {
-        if (!is_dir(self::CHARTS_FOLDER)) {
-            return;
-        }
-
-        $files = scandir(self::CHARTS_FOLDER);
-        $now = time();
-
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-
-            $filepath = self::CHARTS_FOLDER . $file;
-            if (is_file($filepath) && ($now - filemtime($filepath)) > $maxAge) {
-                unlink($filepath);
-                $this->console_log("Ancien graphique supprimé: " . $file);
-            }
         }
     }
 
