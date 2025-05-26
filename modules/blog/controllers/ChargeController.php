@@ -54,12 +54,20 @@ class ChargeController {
             // Formater les résultats pour l'affichage
             $resultatsFormattés = $this->chargeModel->formaterResultats($resultatAnalyse);
 
+
+            $chartPaths = [];
+            if (isset($resultatsFormattés['graphiquesData'])) {
+                $chartPaths = $this->graphGenerator->generateAllCharts($resultatsFormattés['graphiquesData']);
+            }
+
+
+
             // Obtenir un résumé des données pour l'affichage
             $dataSummary = $this->dashboardModel->getDataSummary();
             $fileName = "Données de la base (" . $dataSummary['total_entries'] . " entrées)";
 
             // Afficher les résultats de l'analyse de charge
-            echo $this->chargeView->showChargeAnalysis($userInfo, $fileName, $resultatsFormattés);
+            echo $this->chargeView->showChargeAnalysis($userInfo, $fileName, $resultatsFormattés, $chartPaths);
 
         } catch (\Exception $e) {
             echo $this->chargeView->showErrorMessage("Une erreur est survenue : " . $e->getMessage());

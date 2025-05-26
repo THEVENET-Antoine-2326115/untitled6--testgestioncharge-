@@ -5,7 +5,8 @@
         "box/spout": "^3.3",
         "phpoffice/phpproject": "^0.2.0",
         "groupdocscloud/groupdocs-conversion-cloud": "^25.4",
-        "phpoffice/phpspreadsheet": "^4.2"
+        "phpoffice/phpspreadsheet": "^4.2",
+        "amenadiel/jpgraph": "4"
     },
     "autoload": {
         "psr-4": {
