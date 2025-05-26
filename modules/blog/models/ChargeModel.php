@@ -17,7 +17,8 @@ class ChargeModel {
      * Constructeur de ChargeModel
      */
     public function __construct() {
-        $this->importModel = new ImportModel();
+        // Utiliser le Singleton pour ImportModel - MÊME instance que DashboardModel !
+        $this->importModel = ImportModel::getInstance();
     }
 
     /**
@@ -26,7 +27,7 @@ class ChargeModel {
      * @return array Données de charge analysées
      */
     public function analyserChargeParPeriode() {
-        // Récupérer les données depuis ImportModel
+        // Récupérer les données depuis ImportModel (même instance que Dashboard)
         $donneesDb = $this->importModel->getAllData();
 
         if (empty($donneesDb)) {
@@ -35,8 +36,20 @@ class ChargeModel {
             ];
         }
 
-        // Convertir les données de la BD en format utilisable pour l'analyse
-        $chargeParJour = $this->convertDbDataToChargeData($donneesDb);
+        // Filtrer pour ne garder que les jours présents et futurs
+        $donneesFiltrees = $this->filterFutureAndTodayData($donneesDb);
+
+        if (empty($donneesFiltrees)) {
+            return [
+                'error' => "Aucune donnée disponible pour les jours présents et futurs."
+            ];
+        }
+
+        // Convertir les données filtrées en format utilisable pour l'analyse
+        $chargeParJour = $this->convertDbDataToChargeData($donneesFiltrees);
+
+        // Calculer la charge par processus et par semaine (données filtrées)
+        $chargeParSemaine = $this->calculateWeeklyChargeByProcess($donneesFiltrees);
 
         // Trouver la date de début et de fin globale du projet
         $dates = array_keys($chargeParJour);
@@ -44,23 +57,90 @@ class ChargeModel {
         $dateDebut = new \DateTime(reset($dates));
         $dateFin = new \DateTime(end($dates));
 
-        // Identifier les périodes de surcharge (charge > 100%)
-        $periodesSurcharge = array_filter($chargeParJour, function($jour) {
-            return $jour['surcharge'];
-        });
-
-        // Identifier les périodes de charge pleine (charge = 100%)
-        $periodesChargePleine = array_filter($chargeParJour, function($jour) {
-            return $jour['chargePleine'] ?? false;
-        });
-
         return [
             'chargeParJour' => array_values($chargeParJour),
-            'periodesSurcharge' => array_values($periodesSurcharge),
-            'periodesChargePleine' => array_values($periodesChargePleine),
+            'chargeParSemaine' => $chargeParSemaine,
             'dateDebut' => $dateDebut,
             'dateFin' => $dateFin
         ];
+    }
+
+    /**
+     * Filtre les données pour ne garder que les jours présents et futurs
+     *
+     * @param array $donneesDb Données de la base de données
+     * @return array Données filtrées
+     */
+    private function filterFutureAndTodayData($donneesDb) {
+        // Obtenir la date d'aujourd'hui à minuit pour la comparaison
+        $aujourdhui = new \DateTime();
+        $aujourdhui->setTime(0, 0, 0); // Minuit aujourd'hui
+
+        $donneesFiltrees = [];
+
+        foreach ($donneesDb as $donnee) {
+            $dateDonnee = new \DateTime($donnee['Date']);
+            $dateDonnee->setTime(0, 0, 0); // Minuit pour cette date
+
+            // Garder seulement si la date est aujourd'hui ou dans le futur
+            if ($dateDonnee >= $aujourdhui) {
+                $donneesFiltrees[] = $donnee;
+            }
+        }
+
+        return $donneesFiltrees;
+    }
+
+    /**
+     * Calcule la charge par processus et par semaine
+     *
+     * @param array $donneesDb Données de la base de données
+     * @return array Charge par semaine et par processus
+     */
+    private function calculateWeeklyChargeByProcess($donneesDb) {
+        $chargeParSemaine = [];
+
+        foreach ($donneesDb as $donnee) {
+            $date = new \DateTime($donnee['Date']);
+            $processus = $donnee['Processus'];
+            $charge = floatval($donnee['Charge']);
+
+            // Calculer le début de la semaine (lundi)
+            $debutSemaine = clone $date;
+            $jourSemaine = $date->format('N'); // 1 = lundi, 7 = dimanche
+            $debutSemaine->sub(new \DateInterval('P' . ($jourSemaine - 1) . 'D'));
+
+            // Calculer la fin de la semaine (dimanche)
+            $finSemaine = clone $debutSemaine;
+            $finSemaine->add(new \DateInterval('P6D'));
+
+            // Créer la clé de semaine
+            $cleSemaine = $debutSemaine->format('Y-m-d') . '_' . $finSemaine->format('Y-m-d');
+
+            // Initialiser la semaine si nécessaire
+            if (!isset($chargeParSemaine[$cleSemaine])) {
+                $chargeParSemaine[$cleSemaine] = [
+                    'debut' => $debutSemaine,
+                    'fin' => $finSemaine,
+                    'processus' => [],
+                    'total' => 0
+                ];
+            }
+
+            // Initialiser le processus si nécessaire
+            if (!isset($chargeParSemaine[$cleSemaine]['processus'][$processus])) {
+                $chargeParSemaine[$cleSemaine]['processus'][$processus] = 0;
+            }
+
+            // Ajouter la charge
+            $chargeParSemaine[$cleSemaine]['processus'][$processus] += $charge;
+            $chargeParSemaine[$cleSemaine]['total'] += $charge;
+        }
+
+        // Trier par date de début de semaine
+        ksort($chargeParSemaine);
+
+        return $chargeParSemaine;
     }
 
     /**
@@ -90,8 +170,6 @@ class ChargeModel {
                     'charge' => 0,
                     'taches' => [],
                     'processus' => [],
-                    'chargePleine' => false,
-                    'surcharge' => false,
                     'estWeekend' => $estWeekend
                 ];
             }
@@ -108,13 +186,6 @@ class ChargeModel {
             if (!in_array($processus, $chargeParJour[$date]['processus'])) {
                 $chargeParJour[$date]['processus'][] = $processus;
             }
-        }
-
-        // Calculer les indicateurs de charge pour chaque jour
-        foreach ($chargeParJour as $date => &$jour) {
-            $charge = $jour['charge'];
-            $jour['chargePleine'] = (abs($charge - 1.0) < 0.01); // Charge à 100% (avec tolérance)
-            $jour['surcharge'] = ($charge > 1.0); // Surcharge si > 100%
         }
 
         return $chargeParJour;
@@ -166,8 +237,6 @@ class ChargeModel {
                     'charge' => '0',
                     'taches' => '',
                     'processus' => '',
-                    'surcharge' => false,
-                    'chargePleine' => false,
                     'jour_semaine' => $joursEnFrancais[$date->format('N')],
                     'estWeekend' => true
                 ];
@@ -178,8 +247,6 @@ class ChargeModel {
                     'charge' => number_format($jour['charge'], 2),
                     'taches' => implode(', ', $jour['taches']),
                     'processus' => $processusTexte,
-                    'surcharge' => $jour['surcharge'],
-                    'chargePleine' => $jour['chargePleine'] ?? false,
                     'jour_semaine' => $joursEnFrancais[$date->format('N')],
                     'estWeekend' => false
                 ];
@@ -190,32 +257,22 @@ class ChargeModel {
             $donneesMensuellesFormat[$moisActuel] = $donneesMois;
         }
 
-        // Formater les périodes de surcharge pour mise en évidence
-        $surcharges = [];
-        foreach ($resultatAnalyse['periodesSurcharge'] as $jour) {
-            $surcharges[] = [
-                'date' => $jour['date']->format('d/m/Y'),
-                'charge' => number_format($jour['charge'], 2),
-                'taches' => implode(', ', $jour['taches'])
-            ];
-        }
-
-        // Formater les périodes de charge pleine (100%)
-        $chargesPleine = [];
-        if (isset($resultatAnalyse['periodesChargePleine'])) {
-            foreach ($resultatAnalyse['periodesChargePleine'] as $jour) {
-                $chargesPleine[] = [
-                    'date' => $jour['date']->format('d/m/Y'),
-                    'charge' => number_format($jour['charge'], 2),
-                    'taches' => implode(', ', $jour['taches'])
+        // Formater les données de charge par semaine
+        $chargeParSemaineFormatee = [];
+        if (isset($resultatAnalyse['chargeParSemaine'])) {
+            foreach ($resultatAnalyse['chargeParSemaine'] as $semaine) {
+                $chargeParSemaineFormatee[] = [
+                    'debut' => $semaine['debut']->format('d/m/Y'),
+                    'fin' => $semaine['fin']->format('d/m/Y'),
+                    'processus' => $semaine['processus'],
+                    'total' => number_format($semaine['total'], 2)
                 ];
             }
         }
 
         return [
             'donneesMensuelles' => $donneesMensuellesFormat,
-            'surcharges' => $surcharges,
-            'chargesPleine' => $chargesPleine,
+            'chargeParSemaine' => $chargeParSemaineFormatee,
             'dateDebut' => $resultatAnalyse['dateDebut']->format('d/m/Y'),
             'dateFin' => $resultatAnalyse['dateFin']->format('d/m/Y')
         ];

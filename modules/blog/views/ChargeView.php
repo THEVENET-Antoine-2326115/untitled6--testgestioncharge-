@@ -23,7 +23,6 @@ class ChargeView {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Erreur - Analyse de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
-            <link rel="stylesheet" href="_assets/css/charge.css">
         </head>
         <body>
         <div class="navbar">
@@ -63,7 +62,6 @@ class ChargeView {
             <title>Analyse de Charge - Gestion de Charge</title>
             <link rel="stylesheet" href="_assets/css/dashboard.css">
             <link rel="stylesheet" href="_assets/css/excel.css">
-            <link rel="stylesheet" href="_assets/css/charge.css">
         </head>
         <body>
         <div class="navbar">
@@ -80,25 +78,31 @@ class ChargeView {
                 <div class="summary-box">
                     <div class="summary-title">Résumé de l'analyse</div>
                     <p>Période analysée: <?php echo htmlspecialchars($resultats['dateDebut']); ?> au <?php echo htmlspecialchars($resultats['dateFin']); ?></p>
-                    <p>Fichier analysé: <?php echo htmlspecialchars($fileName); ?></p>
-
-                    <?php if (count($resultats['surcharges']) > 0): ?>
-                        <div class="surcharge-list">
-                            <p><strong>Attention: <?php echo count($resultats['surcharges']); ?> jour(s) en surcharge détecté(s)!</strong></p>
-                            <ul>
-                                <?php foreach ($resultats['surcharges'] as $surcharge): ?>
-                                    <li class="surcharge-item">
-                                        <?php echo htmlspecialchars($surcharge['date']); ?> -
-                                        Charge: <?php echo htmlspecialchars($surcharge['charge']); ?> -
-                                        Tâches: <?php echo htmlspecialchars($surcharge['taches']); ?>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php else: ?>
-                        <p><strong>Aucune surcharge détectée dans la période analysée.</strong></p>
-                    <?php endif; ?>
+                    <p>Données analysé: <?php echo htmlspecialchars($fileName); ?></p>
                 </div>
+
+                <!-- Nouvelle section : Charge par processus et par semaine -->
+                <?php if (!empty($resultats['chargeParSemaine'])): ?>
+                    <div class="summary-box">
+                        <div class="summary-title">Charge par processus et par semaine</div>
+
+                        <?php foreach ($resultats['chargeParSemaine'] as $semaine): ?>
+                            <div class="weekly-summary">
+                                <h4>Semaine du <?php echo htmlspecialchars($semaine['debut']); ?> au <?php echo htmlspecialchars($semaine['fin']); ?></h4>
+                                <div class="weekly-details">
+                                    <div class="weekly-processes">
+                                        <?php foreach ($semaine['processus'] as $processus => $charge): ?>
+                                            <div class="process-charge">
+                                                <span class="process-name"><?php echo htmlspecialchars($processus); ?>:</span>
+                                                <span class="charge-value"><?php echo number_format($charge, 2); ?></span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
                 <div class="charge-container">
                     <h2>Répartition de la charge par jour</h2>
@@ -117,27 +121,17 @@ class ChargeView {
                                         <th>Jour</th>
                                         <th>Processus</th>
                                         <th>Tâches</th>
-                                        <th>Charge</th>
+                                        <th>Personne</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     <?php foreach ($jours as $jour): ?>
                                         <tr <?php
                                         $isWeekend = $jour['estWeekend'] ?? ($jour['jour_semaine'] === 'Samedi' || $jour['jour_semaine'] === 'Dimanche');
-                                        $classTr = [];
-
-                                        // Déterminer la classe en fonction de la charge
-                                        if (isset($jour['surcharge']) && $jour['surcharge']) {
-                                            $classTr[] = 'surcharge';
-                                        } elseif (isset($jour['chargePleine']) && $jour['chargePleine']) {
-                                            $classTr[] = 'charge-pleine';
-                                        }
 
                                         if ($isWeekend) {
-                                            $classTr[] = 'weekend';
+                                            echo 'class="weekend"';
                                         }
-
-                                        echo !empty($classTr) ? 'class="' . implode(' ', $classTr) . '"' : '';
                                         ?>>
                                             <td><?php echo htmlspecialchars($jour['date']); ?></td>
                                             <td><?php echo htmlspecialchars($jour['jour_semaine']); ?></td>
@@ -154,6 +148,7 @@ class ChargeView {
                 </div>
             </div>
         </div>
+
         </body>
         </html>
         <?php

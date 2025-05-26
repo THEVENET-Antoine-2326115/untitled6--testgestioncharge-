@@ -22,7 +22,8 @@ class DashboardModel {
      * Constructeur du DashboardModel
      */
     public function __construct() {
-        $this->importModel = new ImportModel();
+        // Utiliser le Singleton pour ImportModel
+        $this->importModel = ImportModel::getInstance();
         $this->lectureDossierModel = new LectureDossierModel();
     }
 

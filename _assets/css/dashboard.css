@@ -29,14 +29,7 @@
     background-color: #f5f5f5;
 }
 
-/* Styles pour les niveaux de charge - application directe sur les cellules */
-.charge-pleine td {
-    background-color: #FF9800 !important;
-}
 
-.surcharge td {
-    background-color: #F44336 !important;
-}
 
 /* Style pour les week-ends */
 .weekend td {
