@@ -103,58 +103,98 @@ class ChargeView {
                     </div>
                 <?php endif; ?>
 
-                <!-- Section des graphiques générés -->
+
+
+                <!-- Section des graphiques avec boutons de sélection -->
                 <div class="graphiques-container">
                     <h2>Évolution de la charge par semaine</h2>
 
-                    <?php if (!empty($chartPaths['production'])): ?>
-                        <div class="graphique-section">
-                            <h3>Production</h3>
+                    <!-- 🆕 BOUTONS DE SÉLECTION DES GRAPHIQUES -->
+                    <div class="graphiques-tabs">
+                        <button onclick="showChart('production')" id="btn-production" class="tab-button active">
+                            🏭 Production
+                        </button>
+                        <button onclick="showChart('etude')" id="btn-etude" class="tab-button">
+                            📊 Étude
+                        </button>
+                        <button onclick="showChart('methode')" id="btn-methode" class="tab-button">
+                            🔧 Méthode
+                        </button>
+                    </div>
+
+                    <!-- GRAPHIQUE PRODUCTION (affiché par défaut) -->
+                    <div id="chart-production" class="graphique-section chart-content">
+                        <h3>Production</h3>
+                        <?php if (!empty($chartPaths['production'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['production']); ?>"
                                  alt="Graphique charge Production" class="chart-image">
                             <p class="chart-description">Évolution des charges pour Chaudronnerie, Soudure et Contrôle</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="graphique-section">
-                            <h3>Production</h3>
+                        <?php else: ?>
                             <div class="chart-placeholder">
                                 <p>Aucune donnée de production disponible</p>
                             </div>
-                        </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
 
-                    <?php if (!empty($chartPaths['etude'])): ?>
-                        <div class="graphique-section">
-                            <h3>Étude</h3>
+                    <!-- GRAPHIQUE ÉTUDE (masqué par défaut) -->
+                    <div id="chart-etude" class="graphique-section chart-content hidden">
+                        <h3>Étude</h3>
+                        <?php if (!empty($chartPaths['etude'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['etude']); ?>"
                                  alt="Graphique charge Étude" class="chart-image">
                             <p class="chart-description">Évolution des charges pour Calcul et Projet</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="graphique-section">
-                            <h3>Étude</h3>
+                        <?php else: ?>
                             <div class="chart-placeholder">
                                 <p>Aucune donnée d'étude disponible</p>
                             </div>
-                        </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
 
-                    <?php if (!empty($chartPaths['methode'])): ?>
-                        <div class="graphique-section">
-                            <h3>Méthode</h3>
+                    <!-- GRAPHIQUE MÉTHODE (masqué par défaut) -->
+                    <div id="chart-methode" class="graphique-section chart-content hidden">
+                        <h3>Méthode</h3>
+                        <?php if (!empty($chartPaths['methode'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['methode']); ?>"
                                  alt="Graphique charge Méthode" class="chart-image">
                             <p class="chart-description">Évolution de la charge pour Méthode</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="graphique-section">
-                            <h3>Méthode</h3>
+                        <?php else: ?>
                             <div class="chart-placeholder">
                                 <p>Aucune donnée de méthode disponible</p>
                             </div>
-                        </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
+
+                <script>
+                    // 🆕 FONCTION POUR AFFICHER/MASQUER LES GRAPHIQUES
+                    function showChart(chartType) {
+                        console.log('Affichage du graphique:', chartType);
+
+                        // Masquer tous les graphiques
+                        const allCharts = document.querySelectorAll('.chart-content');
+                        allCharts.forEach(chart => {
+                            chart.classList.add('hidden');
+                        });
+
+                        // Désactiver tous les boutons
+                        const allButtons = document.querySelectorAll('.tab-button');
+                        allButtons.forEach(button => {
+                            button.classList.remove('active');
+                        });
+
+                        // Afficher le graphique sélectionné
+                        const selectedChart = document.getElementById('chart-' + chartType);
+                        if (selectedChart) {
+                            selectedChart.classList.remove('hidden');
+                        }
+
+                        // Activer le bouton sélectionné
+                        const selectedButton = document.getElementById('btn-' + chartType);
+                        if (selectedButton) {
+                            selectedButton.classList.add('active');
+                        }
+                    }
+                </script>
             </div>
         </div>
 
@@ -264,6 +304,91 @@ class ChargeView {
                 .chart-image {
                     width: 100%;
                 }
+            }
+
+            /* NOUVEAUX STYLES POUR LES CONTRÔLES GRAPHIQUES */
+            .graphiques-controls {
+                margin: 20px 0;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+                text-align: center;
+            }
+
+            .graphiques-controls h2 {
+                color: #333;
+                margin-top: 0;
+                margin-bottom: 15px;
+            }
+
+            .btn-update-charts {
+                text-decoration: none;
+            }
+
+            .btn-update-charts button {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: background-color 0.3s;
+            }
+
+            .btn-update-charts button:hover {
+                background-color: #0b7dda;
+            }
+
+            /* 🆕 STYLES POUR LES ONGLETS DE GRAPHIQUES */
+            .graphiques-tabs {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                justify-content: center;
+            }
+
+            .tab-button {
+                background-color: #f5f5f5;
+                color: #333;
+                border: 2px solid #ddd;
+                padding: 12px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                transition: all 0.3s;
+            }
+
+            .tab-button:hover {
+                background-color: #e0e0e0;
+                border-color: #bbb;
+            }
+
+            .tab-button.active {
+                background-color: #2196F3;
+                color: white;
+                border-color: #2196F3;
+            }
+
+            .chart-content {
+                display: block;
+            }
+
+            .chart-content.hidden {
+                display: none;
+            }
+
+            /* Ajuster les graphiques pour l'affichage en onglets */
+            .graphique-section {
+                margin-bottom: 20px; /* Réduire l'espace */
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                background-color: #fafafa;
+                text-align: center;
             }
         </style>
 

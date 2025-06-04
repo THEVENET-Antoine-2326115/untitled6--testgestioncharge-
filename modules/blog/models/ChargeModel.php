@@ -336,4 +336,123 @@ class ChargeModel {
 
         return $graphiquesData;
     }
+
+
+    /**
+     * Supprime TOUS les fichiers dans le dossier des graphiques
+     *
+     * Cette fonction nettoie COMPLÈTEMENT le dossier _assets/images/ en supprimant
+     * TOUS les fichiers (peu importe l'extension).
+     *
+     * @return array Résultat de l'opération avec compteurs et messages
+     */
+
+    public function nettoyerGraphiquesPng() {
+        // 🆕 FONCTION DE LOG INTÉGRÉE (Option A)
+        $console_log = function($message) {
+            echo "<script>console.log('[ChargeModel] " . addslashes($message) . "');</script>";
+        };
+
+        $console_log("=== DÉBUT NETTOYAGE COMPLET DU DOSSIER ===");
+
+        // Définir le dossier des images (même chemin que GraphGeneratorModel)
+        $imageFolder = __DIR__ . '/../../../_assets/images/';
+
+        $console_log("Dossier cible: " . $imageFolder);
+        $console_log("Chemin absolu: " . realpath($imageFolder));
+
+        // Résultat de l'opération
+        $resultat = [
+            'success' => false,
+            'message' => '',
+            'fichiers_trouves' => 0,
+            'fichiers_supprimes' => 0,
+            'erreurs' => 0,
+            'liste_fichiers' => []
+        ];
+
+        try {
+            $console_log("=== SCAN DU DOSSIER ===");
+
+            // Parcourir le dossier
+            $fichiers = scandir($imageFolder);
+            $console_log("Éléments retournés par scandir(): " . count($fichiers));
+            $console_log("Contenu brut du dossier: " . implode(', ', $fichiers));
+
+            foreach ($fichiers as $fichier) {
+                $console_log("--- Examen de: " . $fichier . " ---");
+
+                // Ignorer les dossiers spéciaux
+                if ($fichier === '.' || $fichier === '..') {
+                    $console_log("Ignoré: dossier spécial");
+                    continue;
+                }
+
+                $cheminComplet = $imageFolder . $fichier;
+                $console_log("Chemin complet: " . $cheminComplet);
+
+                // Vérifier que c'est un fichier
+                if (!is_file($cheminComplet)) {
+                    $console_log("Ignoré: pas un fichier (probablement un dossier)");
+                    continue;
+                }
+
+                // 🆕 SUPPRIMER TOUS LES FICHIERS (plus de filtrage par extension)
+                $resultat['fichiers_trouves']++;
+                $resultat['liste_fichiers'][] = $fichier;
+
+                $console_log("✓ FICHIER TROUVÉ: " . $fichier . " (sera supprimé)");
+
+                // Tentative de suppression
+                $console_log("Tentative de suppression...");
+
+                if (unlink($cheminComplet)) {
+                    $resultat['fichiers_supprimes']++;
+                    $console_log("✅ SUPPRIMÉ AVEC SUCCÈS: " . $fichier);
+                } else {
+                    $resultat['erreurs']++;
+                    $console_log("❌ ERREUR SUPPRESSION: " . $fichier);
+                }
+            }
+
+            $console_log("=== BILAN FINAL ===");
+            $console_log("Fichiers trouvés: " . $resultat['fichiers_trouves']);
+            $console_log("Fichiers supprimés: " . $resultat['fichiers_supprimes']);
+            $console_log("Erreurs: " . $resultat['erreurs']);
+
+            // Déterminer le succès global
+            $resultat['success'] = ($resultat['erreurs'] === 0);
+
+            // Message de résumé
+            if ($resultat['fichiers_trouves'] === 0) {
+                $resultat['message'] = "Aucun fichier trouvé dans le dossier.";
+                $console_log("RÉSULTAT: Dossier déjà vide");
+            } else {
+                $resultat['message'] = sprintf(
+                    "Nettoyage terminé: %d fichier(s) trouvé(s), %d supprimé(s), %d erreur(s).",
+                    $resultat['fichiers_trouves'],
+                    $resultat['fichiers_supprimes'],
+                    $resultat['erreurs']
+                );
+                $console_log("RÉSULTAT: " . $resultat['message']);
+            }
+
+        } catch (\Exception $e) {
+            $console_log("💥 EXCEPTION: " . $e->getMessage());
+            $console_log("Type d'exception: " . get_class($e));
+            $console_log("Ligne: " . $e->getLine());
+            $console_log("Fichier: " . $e->getFile());
+
+            $resultat['success'] = false;
+            $resultat['message'] = "Erreur lors du nettoyage: " . $e->getMessage();
+            $resultat['erreurs']++;
+        }
+
+        $console_log("=== FIN NETTOYAGE COMPLET DU DOSSIER ===");
+
+        return $resultat;
+    }
+
+
+
 }

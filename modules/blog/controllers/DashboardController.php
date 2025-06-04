@@ -2,16 +2,18 @@
 namespace modules\blog\controllers;
 
 use modules\blog\models\DashboardModel;
+use modules\blog\models\AjoutChargeModel;
 use modules\blog\views\DashboardView;
 
 /**
  * Classe DashboardController
  *
- * Cette classe sert de pont entre DashboardModel et DashboardView.
- * Elle s'adapte aux méthodes disponibles dans les deux.
+ * Cette classe sert de pont entre DashboardModel, AjoutChargeModel et DashboardView.
+ * Elle s'adapte aux méthodes disponibles dans les modèles et gère l'ajout manuel de charges.
  */
 class DashboardController {
     private $model;
+    private $ajoutChargeModel;
     private $view;
 
     /**
@@ -19,6 +21,7 @@ class DashboardController {
      */
     public function __construct() {
         $this->model = new DashboardModel();
+        $this->ajoutChargeModel = new AjoutChargeModel();
         $this->view = new DashboardView();
     }
 
@@ -33,6 +36,12 @@ class DashboardController {
 
         // Récupérer les informations de l'utilisateur
         $userInfo = $this->model->getUserInfo($userId);
+
+        // 🆕 VÉRIFIER SI C'EST UN AJOUT DE CHARGE (POST)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_charge') {
+            $this->handleAddCharge($userInfo);
+            return;
+        }
 
         // Vérifier si une action spécifique est demandée
         $subAction = $_GET['subaction'] ?? '';
@@ -53,6 +62,58 @@ class DashboardController {
             default:
                 $this->handleDashboard($userInfo);
                 break;
+        }
+    }
+
+    /**
+     * 🆕 Gère l'ajout manuel d'une charge
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleAddCharge($userInfo) {
+        try {
+            echo "<script>console.log('=== TRAITEMENT AJOUT CHARGE ===');</script>";
+
+            // Récupérer les données du formulaire
+            $donnees = [
+                'processus' => trim($_POST['processus'] ?? ''),
+                'tache' => trim($_POST['tache'] ?? ''),
+                'charge' => trim($_POST['charge'] ?? ''),
+                'date' => trim($_POST['date'] ?? '')
+            ];
+
+            echo "<script>console.log('Données reçues: " . addslashes(json_encode($donnees)) . "');</script>";
+
+            // Ajouter la charge via le modèle
+            $result = $this->ajoutChargeModel->ajouterCharge($donnees);
+
+            if ($result['success']) {
+                echo "<script>console.log('✅ Ajout réussi');</script>";
+
+                // Forcer le rechargement des données dans ImportModel
+                $this->model->refreshData();
+
+                // Préparer les données et afficher avec le résultat de succès
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+            } else {
+                echo "<script>console.log('❌ Erreur ajout: " . addslashes($result['message']) . "');</script>";
+
+                // Préparer les données et afficher avec le résultat d'erreur
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+            }
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('💥 Exception ajout charge: " . addslashes($e->getMessage()) . "');</script>";
+
+            $result = [
+                'success' => false,
+                'message' => "Erreur lors de l'ajout : " . $e->getMessage()
+            ];
+
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
         }
     }
 
@@ -199,6 +260,9 @@ class DashboardController {
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
 
+        // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
+        $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
+
         return [
             'summary' => $dataSummary,
             'files_info' => [
@@ -206,7 +270,8 @@ class DashboardController {
                 'xlsx_count' => count($xlsxFiles)
             ],
             'display_data' => $displayData,
-            'display_title' => $displayTitle
+            'display_title' => $displayTitle,
+            'processus_suggestions' => $processusSuggestions // 🆕 NOUVEAU
         ];
     }
 
@@ -233,6 +298,9 @@ class DashboardController {
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
 
+        // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
+        $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
+
         return [
             'summary' => $dataSummary,
             'files_info' => [
@@ -240,7 +308,8 @@ class DashboardController {
                 'xlsx_count' => count($xlsxFiles)
             ],
             'display_data' => $displayData,
-            'display_title' => "Toutes les données (" . count($allData) . " entrées)"
+            'display_title' => "Toutes les données (" . count($allData) . " entrées)",
+            'processus_suggestions' => $processusSuggestions // 🆕 NOUVEAU
         ];
     }
 }

@@ -253,6 +253,71 @@ class DashboardView {
                         });
                     </script>
                 </div>
+                <!-- SECTION AJOUT MANUEL DE CHARGE -->
+                <div class="add-charge-section">
+                    <h2>Ajouter une charge manuellement</h2>
+
+                    <form action="index.php" method="POST" class="add-charge-form">
+                        <input type="hidden" name="action" value="add_charge">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="processus">Processus :</label>
+                                <input type="text"
+                                       id="processus"
+                                       name="processus"
+                                       placeholder="Ex: CHAUDNQ, SOUDNQ, CT..."
+                                       list="processus-suggestions"
+                                       required>
+                                <datalist id="processus-suggestions">
+                                    <!-- Les suggestions seront ajoutées ici par le contrôleur -->
+                                    <?php if (isset($dashboardData['processus_suggestions'])): ?>
+                                    <?php foreach ($dashboardData['processus_suggestions'] as $suggestion): ?>
+                                    <option value="<?php echo htmlspecialchars($suggestion); ?>">
+                                        <?php endforeach; ?>
+                                        <?php endif; ?>
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tache">Tâche :</label>
+                                <input type="text"
+                                       id="tache"
+                                       name="tache"
+                                       placeholder="Description de la tâche"
+                                       required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="charge">Charge :</label>
+                                <input type="number"
+                                       id="charge"
+                                       name="charge"
+                                       step="1"
+                                       min="0"
+                                       placeholder="Ex: 1"
+                                       required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="date">Date :</label>
+                                <input type="date"
+                                       id="date"
+                                       name="date"
+                                       value="<?php echo date('Y-m-d'); ?>"
+                                       required>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-add-charge">
+                                ➕ Ajouter la charge
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
         </body>
