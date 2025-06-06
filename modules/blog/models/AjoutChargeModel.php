@@ -205,6 +205,96 @@ class AjoutChargeModel {
             'METH' => 'Méthode'
         ];
     }
+    /**
+    * Supprime une charge de la base de données
+    *
+    * @param array $donnees Données de la charge à supprimer
+    * @return array Résultat de la suppression
+    */
+    public function supprimerCharge($donnees) {
+        $this->console_log("=== DÉBUT SUPPRESSION CHARGE ===");
+        $this->console_log("Données reçues: " . json_encode($donnees));
+
+        // Valider les données (même validation que l'ajout)
+        $validation = $this->validerDonnees($donnees);
+        if (!$validation['success']) {
+            $this->console_log("❌ Validation échouée: " . $validation['message']);
+            return $validation;
+        }
+
+        $this->console_log("✅ Validation réussie");
+
+        try {
+            // Vérifier si la ligne existe exactement
+            $this->console_log("Recherche de la ligne exacte en base...");
+            $existeQuery = "SELECT COUNT(*) as count FROM Donnees WHERE Processus = :processus AND Tache = :tache AND Charge = :charge AND Date = :date";
+            $stmtExiste = $this->db->prepare($existeQuery);
+            $stmtExiste->bindParam(':processus', $donnees['processus']);
+            $stmtExiste->bindParam(':tache', $donnees['tache']);
+            $stmtExiste->bindParam(':charge', $donnees['charge']);
+            $stmtExiste->bindParam(':date', $donnees['date']);
+            $stmtExiste->execute();
+
+            $result = $stmtExiste->fetch(\PDO::FETCH_ASSOC);
+            $count = intval($result['count']);
+
+            $this->console_log("Lignes trouvées correspondantes: " . $count);
+
+            if ($count === 0) {
+                $this->console_log("❌ Aucune ligne correspondante trouvée");
+                return [
+                    'success' => false,
+                    'message' => "Aucune charge correspondante trouvée en base de données. Vérifiez que tous les champs correspondent exactement à une ligne existante."
+                ];
+            }
+
+            if ($count > 1) {
+                $this->console_log("⚠️ Plusieurs lignes correspondantes trouvées: " . $count);
+                // On peut choisir de supprimer toutes les lignes correspondantes ou s'arrêter
+                // Pour la sécurité, on informe l'utilisateur
+            }
+
+            // Supprimer la/les ligne(s) correspondante(s)
+            $this->console_log("Suppression de " . $count . " ligne(s)...");
+            $deleteQuery = "DELETE FROM Donnees WHERE Processus = :processus AND Tache = :tache AND Charge = :charge AND Date = :date";
+            $stmtDelete = $this->db->prepare($deleteQuery);
+            $stmtDelete->bindParam(':processus', $donnees['processus']);
+            $stmtDelete->bindParam(':tache', $donnees['tache']);
+            $stmtDelete->bindParam(':charge', $donnees['charge']);
+            $stmtDelete->bindParam(':date', $donnees['date']);
+
+            $deleteSuccess = $stmtDelete->execute();
+            $rowsAffected = $stmtDelete->rowCount();
+
+            if ($deleteSuccess && $rowsAffected > 0) {
+                $this->console_log("✅ Suppression réussie: " . $rowsAffected . " ligne(s) supprimée(s)");
+
+                $message = "Charge supprimée avec succès : {$donnees['processus']} - {$donnees['tache']} ({$donnees['charge']} personne(s)) le {$donnees['date']}";
+                if ($rowsAffected > 1) {
+                    $message .= " (" . $rowsAffected . " lignes supprimées)";
+                }
+
+                return [
+                    'success' => true,
+                    'message' => $message,
+                    'rows_deleted' => $rowsAffected
+                ];
+            } else {
+                $this->console_log("❌ Échec de la suppression");
+                return [
+                    'success' => false,
+                    'message' => "Erreur lors de la suppression en base de données."
+                ];
+            }
+
+        } catch (\PDOException $e) {
+            $this->console_log("💥 ERREUR SQL: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => "Erreur lors de la suppression en base de données : " . $e->getMessage()
+            ];
+        }
+    }
 
     /**
      * Obtient les suggestions de processus (existants + prédéfinis)
@@ -232,4 +322,5 @@ class AjoutChargeModel {
     private function console_log($message) {
         echo "<script>console.log('[AjoutChargeModel] " . addslashes($message) . "');</script>";
     }
+
 }

@@ -37,10 +37,17 @@ class DashboardController {
         // Récupérer les informations de l'utilisateur
         $userInfo = $this->model->getUserInfo($userId);
 
-        // 🆕 VÉRIFIER SI C'EST UN AJOUT DE CHARGE (POST)
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_charge') {
-            $this->handleAddCharge($userInfo);
-            return;
+        // VÉRIFIER SI C'EST UN AJOUT OU SUPPRESSION DE CHARGE (POST)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $postAction = $_POST['action'] ?? '';
+
+            if ($postAction === 'add_charge') {
+                $this->handleAddCharge($userInfo);
+                return;
+            } elseif ($postAction === 'delete_charge') {
+                $this->handleDeleteCharge($userInfo);
+                return;
+            }
         }
 
         // Vérifier si une action spécifique est demandée
@@ -62,6 +69,58 @@ class DashboardController {
             default:
                 $this->handleDashboard($userInfo);
                 break;
+        }
+    }
+
+    /**
+     * Gère la suppression d'une charge
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleDeleteCharge($userInfo) {
+        try {
+            echo "<script>console.log('=== TRAITEMENT SUPPRESSION CHARGE ===');</script>";
+
+            // Récupérer les données du formulaire
+            $donnees = [
+                'processus' => trim($_POST['processus'] ?? ''),
+                'tache' => trim($_POST['tache'] ?? ''),
+                'charge' => trim($_POST['charge'] ?? ''),
+                'date' => trim($_POST['date'] ?? '')
+            ];
+
+            echo "<script>console.log('Données reçues pour suppression: " . addslashes(json_encode($donnees)) . "');</script>";
+
+            // Supprimer la charge via le modèle
+            $result = $this->ajoutChargeModel->supprimerCharge($donnees);
+
+            if ($result['success']) {
+                echo "<script>console.log('✅ Suppression réussie');</script>";
+
+                // Forcer le rechargement des données dans ImportModel
+                $this->model->refreshData();
+
+                // Préparer les données et afficher avec le résultat de succès
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+            } else {
+                echo "<script>console.log('❌ Erreur suppression: " . addslashes($result['message']) . "');</script>";
+
+                // Préparer les données et afficher avec le résultat d'erreur
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+            }
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('💥 Exception suppression charge: " . addslashes($e->getMessage()) . "');</script>";
+
+            $result = [
+                'success' => false,
+                'message' => "Erreur lors de la suppression : " . $e->getMessage()
+            ];
+
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
         }
     }
 

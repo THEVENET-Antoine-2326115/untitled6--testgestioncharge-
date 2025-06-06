@@ -3,13 +3,13 @@ namespace modules\blog\models;
 
 // Utiliser les namespaces modernes d'amenadiel/jpgraph
 use Amenadiel\JpGraph\Graph\Graph;
-use Amenadiel\JpGraph\Plot\LinePlot;
+use Amenadiel\JpGraph\Plot\BarPlot;
 
 /**
  * Classe GraphGeneratorModel
  *
  * Cette classe gère la génération des graphiques JPGraph pour l'analyse de charge.
- * Version compatible avec amenadiel/jpgraph (namespaces)
+ * Version compatible avec amenadiel/jpgraph (namespaces) - Graphiques en barres avec support Qualité
  */
 class GraphGeneratorModel {
 
@@ -51,7 +51,7 @@ class GraphGeneratorModel {
             $this->console_log("Tentative de chargement JPGraph moderne...");
 
             // Vérifier que les classes sont disponibles via Composer
-            if (class_exists('Amenadiel\\JpGraph\\Graph\\Graph') && class_exists('Amenadiel\\JpGraph\\Plot\\LinePlot')) {
+            if (class_exists('Amenadiel\\JpGraph\\Graph\\Graph') && class_exists('Amenadiel\\JpGraph\\Plot\\BarPlot')) {
                 $this->console_log("Classes JPGraph modernes disponibles");
                 return true;
             } else {
@@ -65,7 +65,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * Génère les 3 graphiques de charge par semaine
+     * Génère les 4 graphiques de charge par semaine
      *
      * @param array $graphiquesData Données formatées pour les graphiques
      * @return array Chemins des images générées
@@ -84,7 +84,8 @@ class GraphGeneratorModel {
         $chartPaths = [
             'production' => null,
             'etude' => null,
-            'methode' => null
+            'methode' => null,
+            'qualite' => null
         ];
 
         try {
@@ -98,7 +99,7 @@ class GraphGeneratorModel {
             }
 
             // Vérifier chaque catégorie avant génération
-            $categories = ['production', 'etude', 'methode'];
+            $categories = ['production', 'etude', 'methode', 'qualite'];
             foreach ($categories as $cat) {
                 if (isset($graphiquesData[$cat])) {
                     $totalData = 0;
@@ -122,6 +123,9 @@ class GraphGeneratorModel {
                                 break;
                             case 'methode':
                                 $chartPaths['methode'] = $this->generateMethodeChart($graphiquesData);
+                                break;
+                            case 'qualite':
+                                $chartPaths['qualite'] = $this->generateQualiteChart($graphiquesData);
                                 break;
                         }
                     } else {
@@ -185,40 +189,40 @@ class GraphGeneratorModel {
 
             $hasData = false;
 
-            // Créer les lignes
+            // Créer les barres
             if (!empty($chaudron_data)) {
-                $lineplot1 = new LinePlot($chaudron_data);
-                $lineplot1->SetColor('red');
-                $lineplot1->SetWeight(3);
-                $lineplot1->SetLegend('Chaudronnerie');
-                $graph->Add($lineplot1);
+                $barplot1 = new BarPlot($chaudron_data);
+                $barplot1->SetColor('red');
+                $barplot1->SetFillColor('red');
+                $barplot1->SetLegend('Chaudronnerie');
+                $graph->Add($barplot1);
                 $hasData = true;
-                $this->console_log("Ligne chaudronnerie ajoutée");
+                $this->console_log("Barre chaudronnerie ajoutée");
             }
 
             if (!empty($soudure_data)) {
-                $lineplot2 = new LinePlot($soudure_data);
-                $lineplot2->SetColor('blue');
-                $lineplot2->SetWeight(3);
-                $lineplot2->SetLegend('Soudure');
-                $graph->Add($lineplot2);
+                $barplot2 = new BarPlot($soudure_data);
+                $barplot2->SetColor('blue');
+                $barplot2->SetFillColor('blue');
+                $barplot2->SetLegend('Soudure');
+                $graph->Add($barplot2);
                 $hasData = true;
-                $this->console_log("Ligne soudure ajoutée");
+                $this->console_log("Barre soudure ajoutée");
             }
 
             if (!empty($ct_data)) {
-                $lineplot3 = new LinePlot($ct_data);
-                $lineplot3->SetColor('green');
-                $lineplot3->SetWeight(3);
-                $lineplot3->SetLegend('Contrôle');
-                $graph->Add($lineplot3);
+                $barplot3 = new BarPlot($ct_data);
+                $barplot3->SetColor('green');
+                $barplot3->SetFillColor('green');
+                $barplot3->SetLegend('Contrôle');
+                $graph->Add($barplot3);
                 $hasData = true;
-                $this->console_log("Ligne CT ajoutée");
+                $this->console_log("Barre CT ajoutée");
             }
 
             if (!$hasData) {
-                $this->console_log("Aucune ligne ajoutée, création image d'erreur");
-                return $this->createErrorImage('production', 'Aucune ligne de donnée valide');
+                $this->console_log("Aucune barre ajoutée, création image d'erreur");
+                return $this->createErrorImage('production', 'Aucune barre de donnée valide');
             }
 
             // Légende
@@ -271,25 +275,25 @@ class GraphGeneratorModel {
             $hasData = false;
 
             if (!empty($calc_data)) {
-                $lineplot1 = new LinePlot($calc_data);
-                $lineplot1->SetColor('orange');
-                $lineplot1->SetWeight(3);
-                $lineplot1->SetLegend('Calcul');
-                $graph->Add($lineplot1);
+                $barplot1 = new BarPlot($calc_data);
+                $barplot1->SetColor('orange');
+                $barplot1->SetFillColor('orange');
+                $barplot1->SetLegend('Calcul');
+                $graph->Add($barplot1);
                 $hasData = true;
             }
 
             if (!empty($proj_data)) {
-                $lineplot2 = new LinePlot($proj_data);
-                $lineplot2->SetColor('purple');
-                $lineplot2->SetWeight(3);
-                $lineplot2->SetLegend('Projet');
-                $graph->Add($lineplot2);
+                $barplot2 = new BarPlot($proj_data);
+                $barplot2->SetColor('purple');
+                $barplot2->SetFillColor('purple');
+                $barplot2->SetLegend('Projet');
+                $graph->Add($barplot2);
                 $hasData = true;
             }
 
             if (!$hasData) {
-                return $this->createErrorImage('etude', 'Aucune ligne de donnée valide');
+                return $this->createErrorImage('etude', 'Aucune barre de donnée valide');
             }
 
             $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
@@ -331,11 +335,11 @@ class GraphGeneratorModel {
             $graph->yaxis->title->Set('Nombre de personnes');
             $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
 
-            $lineplot1 = new LinePlot($meth_data);
-            $lineplot1->SetColor('brown');
-            $lineplot1->SetWeight(3);
-            $lineplot1->SetLegend('Méthode');
-            $graph->Add($lineplot1);
+            $barplot1 = new BarPlot($meth_data);
+            $barplot1->SetColor('brown');
+            $barplot1->SetFillColor('brown');
+            $barplot1->SetLegend('Méthode');
+            $graph->Add($barplot1);
 
             $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
@@ -349,6 +353,74 @@ class GraphGeneratorModel {
     }
 
     /**
+     * Génère le graphique Qualité
+     *
+     * @param array $data Données des graphiques
+     * @return string Chemin de l'image générée
+     */
+    private function generateQualiteChart($data) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUE QUALITÉ ===");
+
+        $filename = 'qualite_' . date('Y-m-d_H-i-s') . '.png';
+        $filepath = self::CHARTS_FOLDER . $filename;
+
+        // Données des processus
+        $qual_data = $data['qualite']['QUAL'] ?? [];
+        $quals_data = $data['qualite']['QUALS'] ?? [];
+
+        $this->console_log("Qualité: " . json_encode($qual_data));
+        $this->console_log("Qualité Spécialisée: " . json_encode($quals_data));
+
+        if (empty($qual_data) && empty($quals_data)) {
+            return $this->createErrorImage('qualite', 'Aucune donnée de qualité');
+        }
+
+        try {
+            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph->SetScale('textlin');
+            $graph->SetMargin(60, 30, 30, 70);
+
+            $graph->title->Set('Charge Qualité par Semaine');
+            $graph->xaxis->title->Set('Semaines');
+            $graph->yaxis->title->Set('Nombre de personnes');
+            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
+
+            $hasData = false;
+
+            if (!empty($qual_data)) {
+                $barplot1 = new BarPlot($qual_data);
+                $barplot1->SetColor('darkblue');
+                $barplot1->SetFillColor('darkblue');
+                $barplot1->SetLegend('Qualité');
+                $graph->Add($barplot1);
+                $hasData = true;
+            }
+
+            if (!empty($quals_data)) {
+                $barplot2 = new BarPlot($quals_data);
+                $barplot2->SetColor('cyan');
+                $barplot2->SetFillColor('cyan');
+                $barplot2->SetLegend('Qualité Spécialisée');
+                $graph->Add($barplot2);
+                $hasData = true;
+            }
+
+            if (!$hasData) {
+                return $this->createErrorImage('qualite', 'Aucune barre de donnée valide');
+            }
+
+            $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
+            $graph->Stroke($filepath);
+            $this->console_log("Graphique qualité sauvegardé: " . $filename);
+            return $filename;
+
+        } catch (\Exception $e) {
+            $this->console_log("Erreur sauvegarde qualité: " . $e->getMessage());
+            return $this->createErrorImage('qualite', 'Erreur sauvegarde: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Génère des images d'erreur si JPGraph ne fonctionne pas
      *
      * @param string $errorMessage Message d'erreur
@@ -358,7 +430,8 @@ class GraphGeneratorModel {
         $chartPaths = [
             'production' => $this->createErrorImage('production', $errorMessage),
             'etude' => $this->createErrorImage('etude', $errorMessage),
-            'methode' => $this->createErrorImage('methode', $errorMessage)
+            'methode' => $this->createErrorImage('methode', $errorMessage),
+            'qualite' => $this->createErrorImage('qualite', $errorMessage)
         ];
 
         return $chartPaths;

@@ -109,7 +109,7 @@ class ChargeView {
                 <div class="graphiques-container">
                     <h2>Évolution de la charge par semaine</h2>
 
-                    <!-- 🆕 BOUTONS DE SÉLECTION DES GRAPHIQUES -->
+                    <!-- BOUTONS DE SÉLECTION DES GRAPHIQUES -->
                     <div class="graphiques-tabs">
                         <button onclick="showChart('production')" id="btn-production" class="tab-button active">
                             🏭 Production
@@ -119,6 +119,9 @@ class ChargeView {
                         </button>
                         <button onclick="showChart('methode')" id="btn-methode" class="tab-button">
                             🔧 Méthode
+                        </button>
+                        <button onclick="showChart('qualite')" id="btn-qualite" class="tab-button">
+                            ✅ Qualité
                         </button>
                     </div>
 
@@ -163,10 +166,24 @@ class ChargeView {
                             </div>
                         <?php endif; ?>
                     </div>
+
+                    <!-- GRAPHIQUE QUALITÉ (masqué par défaut) -->
+                    <div id="chart-qualite" class="graphique-section chart-content hidden">
+                        <h3>Qualité</h3>
+                        <?php if (!empty($chartPaths['qualite'])): ?>
+                            <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['qualite']); ?>"
+                                 alt="Graphique charge Qualité" class="chart-image">
+                            <p class="chart-description">Évolution des charges pour Qualité et Qualité Spécialisée</p>
+                        <?php else: ?>
+                            <div class="chart-placeholder">
+                                <p>Aucune donnée de qualité disponible</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <script>
-                    // 🆕 FONCTION POUR AFFICHER/MASQUER LES GRAPHIQUES
+                    // FONCTION POUR AFFICHER/MASQUER LES GRAPHIQUES
                     function showChart(chartType) {
                         console.log('Affichage du graphique:', chartType);
 

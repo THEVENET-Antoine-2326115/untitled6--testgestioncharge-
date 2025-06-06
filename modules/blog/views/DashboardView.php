@@ -255,14 +255,12 @@ class DashboardView {
                 </div>
                 <!-- SECTION AJOUT MANUEL DE CHARGE -->
                 <div class="add-charge-section">
-                    <h2>Ajouter une charge manuellement</h2>
+                    <h2>Ajouter ou supprimer une charge manuellement</h2>
 
-                    <form action="index.php" method="POST" class="add-charge-form">
-                        <input type="hidden" name="action" value="add_charge">
-
+                    <form action="index.php" method="POST" class="add-charge-form" id="chargeForm">
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="processus">Processus :</label>
+                                <label for="processus">Compétence :</label>
                                 <input type="text"
                                        id="processus"
                                        name="processus"
@@ -280,11 +278,11 @@ class DashboardView {
                             </div>
 
                             <div class="form-group">
-                                <label for="tache">Tâche :</label>
+                                <label for="tache">Projet :</label>
                                 <input type="text"
                                        id="tache"
                                        name="tache"
-                                       placeholder="Description de la tâche"
+                                       placeholder="Description du projet"
                                        required>
                             </div>
                         </div>
@@ -312,12 +310,60 @@ class DashboardView {
                         </div>
 
                         <div class="form-actions">
-                            <button type="submit" class="btn-add-charge">
+                            <button type="submit" class="btn-add-charge" onclick="setAction('add_charge')">
                                 ➕ Ajouter la charge
                             </button>
+                            <button type="submit" class="btn-delete-charge" onclick="setAction('delete_charge')">
+                                🗑️ Supprimer la charge
+                            </button>
                         </div>
+
+                        <!-- Champ hidden pour l'action -->
+                        <input type="hidden" name="action" id="actionField" value="add_charge">
                     </form>
-                </div>
+
+                    <script>
+                        // Fonction pour définir l'action du formulaire
+                        function setAction(action) {
+                            document.getElementById('actionField').value = action;
+
+                            // Changer la couleur du bouton temporairement pour feedback visuel
+                            if (action === 'delete_charge') {
+                                console.log('🗑️ Action: Suppression de charge');
+                            } else {
+                                console.log('➕ Action: Ajout de charge');
+                            }
+                        }
+
+                        // Confirmation pour la suppression
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const deleteBtn = document.querySelector('.btn-delete-charge');
+                            if (deleteBtn) {
+                                deleteBtn.addEventListener('click', function(e) {
+                                    const processus = document.getElementById('processus').value;
+                                    const tache = document.getElementById('tache').value;
+                                    const charge = document.getElementById('charge').value;
+                                    const date = document.getElementById('date').value;
+
+                                    if (!processus || !tache || !charge || !date) {
+                                        alert('Veuillez remplir tous les champs avant de supprimer.');
+                                        e.preventDefault();
+                                        return;
+                                    }
+
+                                    const confirmMsg = `Êtes-vous sûr de vouloir supprimer cette charge ?\n\n` +
+                                        `Processus: ${processus}\n` +
+                                        `Tâche: ${tache}\n` +
+                                        `Charge: ${charge}\n` +
+                                        `Date: ${date}`;
+
+                                    if (!confirm(confirmMsg)) {
+                                        e.preventDefault();
+                                    }
+                                });
+                            }
+                        });
+                    </script>
             </div>
         </div>
         </body>

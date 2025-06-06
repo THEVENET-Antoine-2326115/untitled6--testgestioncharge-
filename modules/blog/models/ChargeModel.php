@@ -289,11 +289,12 @@ class ChargeModel {
      * @return array Données formatées pour JPGraph
      */
     private function prepareGraphicsData($chargeParSemaine) {
-        // Mapping des processus vers les catégories
+        // Mapping des processus vers les catégories (MISE À JOUR avec Qualité)
         $mappingProcessus = [
             'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
             'etude' => ['CALC', 'PROJ'],
-            'methode' => ['METH']
+            'methode' => ['METH'],
+            'qualite' => ['QUAL', 'QUALS']  // 🆕 NOUVEAU
         ];
 
         // Labels des semaines et initialisation des données
@@ -301,7 +302,8 @@ class ChargeModel {
         $donnees = [
             'production' => ['CHAUDNQ' => [], 'SOUDNQ' => [], 'CT' => []],
             'etude' => ['CALC' => [], 'PROJ' => []],
-            'methode' => ['METH' => []]
+            'methode' => ['METH' => []],
+            'qualite' => ['QUAL' => [], 'QUALS' => []]  // 🆕 NOUVEAU
         ];
 
         // Debug
@@ -452,7 +454,5 @@ class ChargeModel {
 
         return $resultat;
     }
-
-
 
 }

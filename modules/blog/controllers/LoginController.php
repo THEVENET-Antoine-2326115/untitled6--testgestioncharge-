@@ -4,7 +4,6 @@ namespace modules\blog\controllers;
 use modules\blog\models\LoginModel;
 use modules\blog\views\LoginView;
 
-
 /**
  * Classe LoginController
  *
@@ -60,7 +59,7 @@ class LoginController {
 
             if ($this->processLogin($identifiant, $password)) {
                 // Redirection vers la page d'accueil après connexion réussie
-                header('Location: index.php?action=dashboard');
+                header('Location: index.php');
                 exit;
             } else {
                 $this->showLoginPage('Identifiant ou mot de passe incorrect.');
@@ -93,8 +92,7 @@ class LoginController {
         if ($user) {
             // Démarrer la session et stocker les informations de l'utilisateur
             session_start();
-            $_SESSION['user_id'] = $user['id_util'] ?? $user['id_admin'];
-            $_SESSION['user_type'] = $user['type']; // 'utilisateur' ou 'admin'
+            $_SESSION['user_id'] = $user['id_util'];
 
             return true;
         }
