@@ -339,120 +339,235 @@ class ChargeModel {
         return $graphiquesData;
     }
 
-
     /**
-     * Supprime TOUS les fichiers dans le dossier des graphiques
+     * 🆕 Récupère la liste des semaines disponibles (présentes et futures uniquement)
      *
-     * Cette fonction nettoie COMPLÈTEMENT le dossier _assets/images/ en supprimant
-     * TOUS les fichiers (peu importe l'extension).
-     *
-     * @return array Résultat de l'opération avec compteurs et messages
+     * @return array Liste des semaines avec leurs informations
      */
+    public function getAvailableWeeks() {
+        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION SEMAINES DISPONIBLES ===');</script>";
 
-    public function nettoyerGraphiquesPng() {
-        // 🆕 FONCTION DE LOG INTÉGRÉE (Option A)
-        $console_log = function($message) {
-            echo "<script>console.log('[ChargeModel] " . addslashes($message) . "');</script>";
-        };
+        // Récupérer toutes les données depuis ImportModel
+        $donneesDb = $this->importModel->getAllData();
 
-        $console_log("=== DÉBUT NETTOYAGE COMPLET DU DOSSIER ===");
-
-        // Définir le dossier des images (même chemin que GraphGeneratorModel)
-        $imageFolder = __DIR__ . '/../../../_assets/images/';
-
-        $console_log("Dossier cible: " . $imageFolder);
-        $console_log("Chemin absolu: " . realpath($imageFolder));
-
-        // Résultat de l'opération
-        $resultat = [
-            'success' => false,
-            'message' => '',
-            'fichiers_trouves' => 0,
-            'fichiers_supprimes' => 0,
-            'erreurs' => 0,
-            'liste_fichiers' => []
-        ];
-
-        try {
-            $console_log("=== SCAN DU DOSSIER ===");
-
-            // Parcourir le dossier
-            $fichiers = scandir($imageFolder);
-            $console_log("Éléments retournés par scandir(): " . count($fichiers));
-            $console_log("Contenu brut du dossier: " . implode(', ', $fichiers));
-
-            foreach ($fichiers as $fichier) {
-                $console_log("--- Examen de: " . $fichier . " ---");
-
-                // Ignorer les dossiers spéciaux
-                if ($fichier === '.' || $fichier === '..') {
-                    $console_log("Ignoré: dossier spécial");
-                    continue;
-                }
-
-                $cheminComplet = $imageFolder . $fichier;
-                $console_log("Chemin complet: " . $cheminComplet);
-
-                // Vérifier que c'est un fichier
-                if (!is_file($cheminComplet)) {
-                    $console_log("Ignoré: pas un fichier (probablement un dossier)");
-                    continue;
-                }
-
-                // 🆕 SUPPRIMER TOUS LES FICHIERS (plus de filtrage par extension)
-                $resultat['fichiers_trouves']++;
-                $resultat['liste_fichiers'][] = $fichier;
-
-                $console_log("✓ FICHIER TROUVÉ: " . $fichier . " (sera supprimé)");
-
-                // Tentative de suppression
-                $console_log("Tentative de suppression...");
-
-                if (unlink($cheminComplet)) {
-                    $resultat['fichiers_supprimes']++;
-                    $console_log("✅ SUPPRIMÉ AVEC SUCCÈS: " . $fichier);
-                } else {
-                    $resultat['erreurs']++;
-                    $console_log("❌ ERREUR SUPPRESSION: " . $fichier);
-                }
-            }
-
-            $console_log("=== BILAN FINAL ===");
-            $console_log("Fichiers trouvés: " . $resultat['fichiers_trouves']);
-            $console_log("Fichiers supprimés: " . $resultat['fichiers_supprimes']);
-            $console_log("Erreurs: " . $resultat['erreurs']);
-
-            // Déterminer le succès global
-            $resultat['success'] = ($resultat['erreurs'] === 0);
-
-            // Message de résumé
-            if ($resultat['fichiers_trouves'] === 0) {
-                $resultat['message'] = "Aucun fichier trouvé dans le dossier.";
-                $console_log("RÉSULTAT: Dossier déjà vide");
-            } else {
-                $resultat['message'] = sprintf(
-                    "Nettoyage terminé: %d fichier(s) trouvé(s), %d supprimé(s), %d erreur(s).",
-                    $resultat['fichiers_trouves'],
-                    $resultat['fichiers_supprimes'],
-                    $resultat['erreurs']
-                );
-                $console_log("RÉSULTAT: " . $resultat['message']);
-            }
-
-        } catch (\Exception $e) {
-            $console_log("💥 EXCEPTION: " . $e->getMessage());
-            $console_log("Type d'exception: " . get_class($e));
-            $console_log("Ligne: " . $e->getLine());
-            $console_log("Fichier: " . $e->getFile());
-
-            $resultat['success'] = false;
-            $resultat['message'] = "Erreur lors du nettoyage: " . $e->getMessage();
-            $resultat['erreurs']++;
+        if (empty($donneesDb)) {
+            echo "<script>console.log('[ChargeModel] Aucune donnée disponible');</script>";
+            return [];
         }
 
-        $console_log("=== FIN NETTOYAGE COMPLET DU DOSSIER ===");
+        // Filtrer pour ne garder que les données présentes et futures
+        $donneesFiltrees = $this->filterFutureAndTodayData($donneesDb);
 
-        return $resultat;
+        if (empty($donneesFiltrees)) {
+            echo "<script>console.log('[ChargeModel] Aucune donnée présente/future');</script>";
+            return [];
+        }
+
+        // Grouper par semaines
+        $semaines = [];
+        foreach ($donneesFiltrees as $donnee) {
+            $date = new \DateTime($donnee['Date']);
+
+            // Calculer le début de la semaine (lundi)
+            $debutSemaine = clone $date;
+            $jourSemaine = $date->format('N'); // 1 = lundi, 7 = dimanche
+            $debutSemaine->sub(new \DateInterval('P' . ($jourSemaine - 1) . 'D'));
+
+            // Calculer la fin de la semaine (dimanche)
+            $finSemaine = clone $debutSemaine;
+            $finSemaine->add(new \DateInterval('P6D'));
+
+            // Créer l'identifiant unique de la semaine
+            $weekId = $debutSemaine->format('Y-m-d');
+
+            if (!isset($semaines[$weekId])) {
+                $semaines[$weekId] = [
+                    'value' => $weekId,
+                    'debut' => $debutSemaine->format('d/m/Y'),
+                    'fin' => $finSemaine->format('d/m/Y'),
+                    'label' => 'Semaine du ' . $debutSemaine->format('d/m') . ' au ' . $finSemaine->format('d/m/Y'),
+                    'debut_obj' => clone $debutSemaine,
+                    'fin_obj' => clone $finSemaine
+                ];
+            }
+        }
+
+        // Trier par date de début (plus récente en premier)
+        uasort($semaines, function($a, $b) {
+            return $a['debut_obj'] <=> $b['debut_obj'];
+        });
+
+        // Supprimer les objets DateTime pour l'affichage
+        $semainesFormatees = [];
+        foreach ($semaines as $semaine) {
+            unset($semaine['debut_obj'], $semaine['fin_obj']);
+            $semainesFormatees[] = $semaine;
+        }
+
+        echo "<script>console.log('[ChargeModel] Semaines trouvées: " . count($semainesFormatees) . "');</script>";
+        foreach ($semainesFormatees as $semaine) {
+            echo "<script>console.log('[ChargeModel] - " . addslashes($semaine['label']) . " (ID: " . addslashes($semaine['value']) . ")');</script>";
+        }
+
+        return $semainesFormatees;
+    }
+
+    /**
+     * 🆕 Récupère les données quotidiennes pour une semaine spécifique
+     *
+     * @param string $weekStartDate Date de début de la semaine (format Y-m-d)
+     * @return array Données formatées pour cette semaine
+     */
+    public function getDailyDataForWeek($weekStartDate) {
+        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION DONNÉES POUR SEMAINE: " . addslashes($weekStartDate) . " ===');</script>";
+
+        try {
+            $debutSemaine = new \DateTime($weekStartDate);
+            $finSemaine = clone $debutSemaine;
+            $finSemaine->add(new \DateInterval('P6D')); // +6 jours = dimanche
+
+            echo "<script>console.log('[ChargeModel] Période: " . addslashes($debutSemaine->format('Y-m-d')) . " au " . addslashes($finSemaine->format('Y-m-d')) . "');</script>";
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('[ChargeModel] Erreur parsing date: " . addslashes($e->getMessage()) . "');</script>";
+            return ['error' => 'Date de semaine invalide: ' . $weekStartDate];
+        }
+
+        // Récupérer toutes les données depuis ImportModel
+        $donneesDb = $this->importModel->getAllData();
+
+        if (empty($donneesDb)) {
+            return ['error' => 'Aucune donnée disponible dans la base de données.'];
+        }
+
+        // Filtrer les données pour cette semaine uniquement
+        $donneesSemine = [];
+        foreach ($donneesDb as $donnee) {
+            try {
+                $dateDonnee = new \DateTime($donnee['Date']);
+
+                // Vérifier si la date est dans la semaine
+                if ($dateDonnee >= $debutSemaine && $dateDonnee <= $finSemaine) {
+                    $donneesSemine[] = $donnee;
+                }
+            } catch (\Exception $e) {
+                echo "<script>console.log('[ChargeModel] Erreur parsing date donnée: " . addslashes($e->getMessage()) . "');</script>";
+                continue;
+            }
+        }
+
+        echo "<script>console.log('[ChargeModel] Données trouvées pour cette semaine: " . count($donneesSemine) . "');</script>";
+
+        if (empty($donneesSemine)) {
+            return ['error' => 'Aucune donnée trouvée pour cette semaine.'];
+        }
+
+        // Convertir en format graphique par jour
+        $graphiquesData = $this->prepareWeeklyGraphicsData($donneesSemine, $debutSemaine, $finSemaine);
+
+        return [
+            'graphiquesData' => $graphiquesData,
+            'debutSemaine' => $debutSemaine,
+            'finSemaine' => $finSemaine,
+            'donneesCount' => count($donneesSemine)
+        ];
+    }
+
+    /**
+     * 🆕 Prépare les données graphiques pour une semaine (7 jours)
+     *
+     * @param array $donneesSemine Données de la semaine
+     * @param \DateTime $debutSemaine Date de début
+     * @param \DateTime $finSemaine Date de fin
+     * @return array Données formatées pour JPGraph
+     */
+    private function prepareWeeklyGraphicsData($donneesSemine, $debutSemaine, $finSemaine) {
+        echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES HEBDOMADAIRES ===');</script>";
+
+        // Mapping des processus vers les catégories
+        $mappingProcessus = [
+            'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
+            'etude' => ['CALC', 'PROJ'],
+            'methode' => ['METH'],
+            'qualite' => ['QUAL', 'QUALS']
+        ];
+
+        // Créer les labels des 7 jours de la semaine
+        $joursLabels = [];
+        $joursDate = [];
+        $current = clone $debutSemaine;
+
+        $nomsJours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+        for ($i = 0; $i < 7; $i++) {
+            $jourLabel = $nomsJours[$i] . ' ' . $current->format('d/m');
+            $joursLabels[] = $jourLabel;
+            $joursDate[] = $current->format('Y-m-d');
+            $current->add(new \DateInterval('P1D'));
+        }
+
+        echo "<script>console.log('[ChargeModel] Labels jours: " . addslashes(json_encode($joursLabels)) . "');</script>";
+
+        // Initialiser les données par catégorie et par processus (7 jours)
+        $donnees = [
+            'production' => ['CHAUDNQ' => array_fill(0, 7, 0), 'SOUDNQ' => array_fill(0, 7, 0), 'CT' => array_fill(0, 7, 0)],
+            'etude' => ['CALC' => array_fill(0, 7, 0), 'PROJ' => array_fill(0, 7, 0)],
+            'methode' => ['METH' => array_fill(0, 7, 0)],
+            'qualite' => ['QUAL' => array_fill(0, 7, 0), 'QUALS' => array_fill(0, 7, 0)]
+        ];
+
+        // Remplir les données jour par jour
+        foreach ($donneesSemine as $donnee) {
+            $dateData = $donnee['Date'];
+            $processus = $donnee['Processus'];
+            $charge = floatval($donnee['Charge']);
+
+            // Trouver l'index du jour (0-6)
+            $indexJour = array_search($dateData, $joursDate);
+
+            if ($indexJour === false) {
+                echo "<script>console.log('[ChargeModel] Date non trouvée dans la semaine: " . addslashes($dateData) . "');</script>";
+                continue;
+            }
+
+            // Trouver la catégorie du processus
+            $categorieProcessus = null;
+            foreach ($mappingProcessus as $categorie => $processusListe) {
+                if (in_array($processus, $processusListe)) {
+                    $categorieProcessus = $categorie;
+                    break;
+                }
+            }
+
+            if ($categorieProcessus && isset($donnees[$categorieProcessus][$processus])) {
+                $donnees[$categorieProcessus][$processus][$indexJour] += $charge;
+                echo "<script>console.log('[ChargeModel] Ajout: " . addslashes($processus) . " (" . addslashes($categorieProcessus) . ") jour " . $indexJour . " = +" . $charge . "');</script>";
+            } else {
+                echo "<script>console.log('[ChargeModel] Processus ignoré: " . addslashes($processus) . " (catégorie non trouvée)');</script>";
+            }
+        }
+
+        // Ajouter les labels aux données
+        $graphiquesData = array_merge($donnees, ['jours_labels' => $joursLabels]);
+
+        // Log des totaux par catégorie
+        foreach ($mappingProcessus as $categorie => $processusListe) {
+            $totalCategorie = 0;
+            foreach ($processusListe as $proc) {
+                if (isset($donnees[$categorie][$proc])) {
+                    $totalProc = array_sum($donnees[$categorie][$proc]);
+                    $totalCategorie += $totalProc;
+                    if ($totalProc > 0) {
+                        echo "<script>console.log('[ChargeModel] Total " . addslashes($proc) . ": " . $totalProc . "');</script>";
+                    }
+                }
+            }
+            echo "<script>console.log('[ChargeModel] Total catégorie " . addslashes($categorie) . ": " . $totalCategorie . "');</script>";
+        }
+
+        echo "<script>console.log('[ChargeModel] Données graphiques hebdomadaires préparées');</script>";
+
+        return $graphiquesData;
     }
 
 }

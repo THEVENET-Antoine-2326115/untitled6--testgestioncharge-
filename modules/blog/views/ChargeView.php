@@ -4,7 +4,7 @@ namespace modules\blog\views;
 /**
  * Classe ChargeView
  *
- * Cette classe gère l'affichage de l'analyse de charge.
+ * Cette classe gère l'affichage de l'analyse de charge avec sélecteur de semaine.
  */
 class ChargeView {
     /**
@@ -44,15 +44,17 @@ class ChargeView {
     }
 
     /**
-     * Affiche l'analyse de charge
+     * Affiche l'analyse de charge avec sélecteur de semaine
      *
      * @param array $userInfo Informations de l'utilisateur
      * @param string $fileName Nom du fichier Excel
      * @param array $resultats Résultats de l'analyse de charge
-     * @param array $chartPaths Chemins des images de graphiques générées
+     * @param array $availableWeeks Liste des semaines disponibles
+     * @param string $currentWeek Semaine actuellement sélectionnée
+     * @param array $chartPaths Chemins des images de graphiques générées (pour la semaine courante)
      * @return string Le contenu HTML généré
      */
-    public function showChargeAnalysis($userInfo, $fileName, $resultats, $chartPaths = []) {
+    public function showChargeAnalysis($userInfo, $fileName, $resultats, $availableWeeks = [], $currentWeek = '', $chartPaths = []) {
         ob_start();
         ?>
         <!DOCTYPE html>
@@ -82,32 +84,46 @@ class ChargeView {
                     <p>Fichier analysé: <?php echo htmlspecialchars($fileName); ?></p>
                 </div>
 
-                <!-- Section charge par processus et par semaine -->
-                <?php if (!empty($resultats['chargeParSemaine'])): ?>
-                    <div class="summary-box">
-                        <div class="summary-title">Charge par processus et par semaine</div>
+                <!-- 🆕 SÉLECTEUR DE SEMAINE -->
+                <div class="week-selector-container">
+                    <h2>Sélection de la semaine à analyser</h2>
+                    <div class="week-selector">
+                        <label for="week-dropdown">Semaine :</label>
+                        <select id="week-dropdown" name="selected_week" onchange="changeWeek()">
+                            <?php foreach ($availableWeeks as $week): ?>
+                                <option value="<?php echo htmlspecialchars($week['value']); ?>"
+                                    <?php echo ($week['value'] === $currentWeek) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($week['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
 
-                        <?php foreach ($resultats['chargeParSemaine'] as $semaine): ?>
-                            <div class="weekly-summary">
-                                <h4>Semaine du <?php echo htmlspecialchars($semaine['debut']); ?> au <?php echo htmlspecialchars($semaine['fin']); ?></h4>
-                                <div class="weekly-processes">
-                                    <?php foreach ($semaine['processus'] as $processus => $charge): ?>
-                                        <div class="process-charge">
-                                            <span class="process-name"><?php echo htmlspecialchars($processus); ?>:</span>
-                                            <span class="charge-value"><?php echo number_format($charge, 2); ?> personne(s)</span>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+                        <!-- Informations sur la semaine sélectionnée -->
+                        <div class="week-info">
+                            <span class="week-period">
+                                <?php
+                                $selectedWeekInfo = array_filter($availableWeeks, function($w) use ($currentWeek) {
+                                    return $w['value'] === $currentWeek;
+                                });
+                                if ($selectedWeekInfo) {
+                                    $weekInfo = array_values($selectedWeekInfo)[0];
+                                    echo "Du " . htmlspecialchars($weekInfo['debut']) . " au " . htmlspecialchars($weekInfo['fin']);
+                                }
+                                ?>
+                            </span>
+                        </div>
                     </div>
-                <?php endif; ?>
+                </div>
 
-
-
-                <!-- Section des graphiques avec boutons de sélection -->
+                <!-- Section des graphiques par jour pour la semaine sélectionnée -->
                 <div class="graphiques-container">
-                    <h2>Évolution de la charge par semaine</h2>
+                    <h2>Évolution de la charge par jour - Semaine sélectionnée</h2>
+
+                    <div class="week-chart-info">
+                        <p><strong>📅 Affichage :</strong> Charge quotidienne pour la semaine sélectionnée</p>
+                        <p><strong>📊 Axe X :</strong> Jours de la semaine (Lundi à Dimanche)</p>
+                        <p><strong>📈 Axe Y :</strong> Nombre de personnes</p>
+                    </div>
 
                     <!-- BOUTONS DE SÉLECTION DES GRAPHIQUES -->
                     <div class="graphiques-tabs">
@@ -127,62 +143,102 @@ class ChargeView {
 
                     <!-- GRAPHIQUE PRODUCTION (affiché par défaut) -->
                     <div id="chart-production" class="graphique-section chart-content">
-                        <h3>Production</h3>
+                        <h3>Production - Charge par jour</h3>
                         <?php if (!empty($chartPaths['production'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['production']); ?>"
-                                 alt="Graphique charge Production" class="chart-image">
-                            <p class="chart-description">Évolution des charges pour Chaudronnerie, Soudure et Contrôle</p>
+                                 alt="Graphique charge Production par jour" class="chart-image">
+                            <p class="chart-description">Répartition quotidienne : Chaudronnerie, Soudure et Contrôle</p>
                         <?php else: ?>
                             <div class="chart-placeholder">
-                                <p>Aucune donnée de production disponible</p>
+                                <p>Aucune donnée de production pour cette semaine</p>
+                                <small>Sélectionnez une autre semaine ou vérifiez les données</small>
                             </div>
                         <?php endif; ?>
                     </div>
 
                     <!-- GRAPHIQUE ÉTUDE (masqué par défaut) -->
                     <div id="chart-etude" class="graphique-section chart-content hidden">
-                        <h3>Étude</h3>
+                        <h3>Étude - Charge par jour</h3>
                         <?php if (!empty($chartPaths['etude'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['etude']); ?>"
-                                 alt="Graphique charge Étude" class="chart-image">
-                            <p class="chart-description">Évolution des charges pour Calcul et Projet</p>
+                                 alt="Graphique charge Étude par jour" class="chart-image">
+                            <p class="chart-description">Répartition quotidienne : Calcul et Projet</p>
                         <?php else: ?>
                             <div class="chart-placeholder">
-                                <p>Aucune donnée d'étude disponible</p>
+                                <p>Aucune donnée d'étude pour cette semaine</p>
+                                <small>Sélectionnez une autre semaine ou vérifiez les données</small>
                             </div>
                         <?php endif; ?>
                     </div>
 
                     <!-- GRAPHIQUE MÉTHODE (masqué par défaut) -->
                     <div id="chart-methode" class="graphique-section chart-content hidden">
-                        <h3>Méthode</h3>
+                        <h3>Méthode - Charge par jour</h3>
                         <?php if (!empty($chartPaths['methode'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['methode']); ?>"
-                                 alt="Graphique charge Méthode" class="chart-image">
-                            <p class="chart-description">Évolution de la charge pour Méthode</p>
+                                 alt="Graphique charge Méthode par jour" class="chart-image">
+                            <p class="chart-description">Répartition quotidienne : Méthode</p>
                         <?php else: ?>
                             <div class="chart-placeholder">
-                                <p>Aucune donnée de méthode disponible</p>
+                                <p>Aucune donnée de méthode pour cette semaine</p>
+                                <small>Sélectionnez une autre semaine ou vérifiez les données</small>
                             </div>
                         <?php endif; ?>
                     </div>
 
                     <!-- GRAPHIQUE QUALITÉ (masqué par défaut) -->
                     <div id="chart-qualite" class="graphique-section chart-content hidden">
-                        <h3>Qualité</h3>
+                        <h3>Qualité - Charge par jour</h3>
                         <?php if (!empty($chartPaths['qualite'])): ?>
                             <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['qualite']); ?>"
-                                 alt="Graphique charge Qualité" class="chart-image">
-                            <p class="chart-description">Évolution des charges pour Qualité et Qualité Spécialisée</p>
+                                 alt="Graphique charge Qualité par jour" class="chart-image">
+                            <p class="chart-description">Répartition quotidienne : Qualité et Qualité Spécialisée</p>
                         <?php else: ?>
                             <div class="chart-placeholder">
-                                <p>Aucune donnée de qualité disponible</p>
+                                <p>Aucune donnée de qualité pour cette semaine</p>
+                                <small>Sélectionnez une autre semaine ou vérifiez les données</small>
                             </div>
                         <?php endif; ?>
                     </div>
                 </div>
 
+                <!-- Section récapitulatif hebdomadaire (données textuelles) -->
+                <?php if (!empty($resultats['chargeParSemaine'])): ?>
+                    <div class="weekly-summary-section">
+                        <h2>📋 Récapitulatif par semaine</h2>
+                        <div class="summary-box">
+                            <div class="summary-title">Charge par processus (toutes semaines)</div>
+                            <?php foreach ($resultats['chargeParSemaine'] as $semaine): ?>
+                                <div class="weekly-summary">
+                                    <h4>Semaine du <?php echo htmlspecialchars($semaine['debut']); ?> au <?php echo htmlspecialchars($semaine['fin']); ?></h4>
+                                    <div class="weekly-processes">
+                                        <?php foreach ($semaine['processus'] as $processus => $charge): ?>
+                                            <div class="process-charge">
+                                                <span class="process-name"><?php echo htmlspecialchars($processus); ?>:</span>
+                                                <span class="charge-value"><?php echo number_format($charge, 2); ?> personne(s)</span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <script>
+                    // FONCTION POUR CHANGER DE SEMAINE
+                    function changeWeek() {
+                        console.log('Changement de semaine détecté');
+                        const dropdown = document.getElementById('week-dropdown');
+                        const selectedWeek = dropdown.value;
+                        console.log('Semaine sélectionnée:', selectedWeek);
+
+                        // Redirection avec paramètre de semaine
+                        const currentUrl = new URL(window.location);
+                        currentUrl.searchParams.set('selected_week', selectedWeek);
+                        window.location.href = currentUrl.toString();
+                    }
+
                     // FONCTION POUR AFFICHER/MASQUER LES GRAPHIQUES
                     function showChart(chartType) {
                         console.log('Affichage du graphique:', chartType);
@@ -211,12 +267,99 @@ class ChargeView {
                             selectedButton.classList.add('active');
                         }
                     }
+
+                    // Initialisation au chargement de la page
+                    document.addEventListener('DOMContentLoaded', function() {
+                        console.log('Page chargée - Initialisation des graphiques');
+                        showChart('production'); // Afficher Production par défaut
+                    });
                 </script>
             </div>
         </div>
 
         <style>
-            /* Styles pour l'affichage par semaine */
+            /* 🆕 STYLES POUR LE SÉLECTEUR DE SEMAINE */
+            .week-selector-container {
+                margin: 30px 0;
+                padding: 20px;
+                border: 2px solid #2196F3;
+                border-radius: 8px;
+                background-color: #f8f9ff;
+            }
+
+            .week-selector-container h2 {
+                color: #2196F3;
+                margin-top: 0;
+                margin-bottom: 20px;
+                border-bottom: 1px solid #2196F3;
+                padding-bottom: 10px;
+            }
+
+            .week-selector {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                flex-wrap: wrap;
+            }
+
+            .week-selector label {
+                font-weight: bold;
+                color: #333;
+                font-size: 16px;
+            }
+
+            .week-selector select {
+                padding: 10px 15px;
+                border: 2px solid #ddd;
+                border-radius: 6px;
+                background-color: white;
+                font-size: 16px;
+                min-width: 300px;
+                cursor: pointer;
+                transition: border-color 0.3s;
+            }
+
+            .week-selector select:focus {
+                outline: none;
+                border-color: #2196F3;
+                box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            }
+
+            .week-info {
+                padding: 8px 12px;
+                background-color: #e3f2fd;
+                border-radius: 4px;
+                border-left: 4px solid #2196F3;
+            }
+
+            .week-period {
+                font-weight: 500;
+                color: #1976d2;
+                font-size: 14px;
+            }
+
+            /* 🆕 STYLES POUR INFO GRAPHIQUES */
+            .week-chart-info {
+                margin: 20px 0;
+                padding: 15px;
+                background-color: #f5f5f5;
+                border-radius: 6px;
+                border-left: 4px solid #4CAF50;
+            }
+
+            .week-chart-info p {
+                margin: 5px 0;
+                font-size: 14px;
+                color: #555;
+            }
+
+            /* Styles existants pour l'affichage par semaine */
+            .weekly-summary-section {
+                margin-top: 40px;
+                border-top: 2px solid #eee;
+                padding-top: 30px;
+            }
+
             .weekly-summary {
                 margin-bottom: 20px;
                 padding: 15px;
@@ -257,7 +400,7 @@ class ChargeView {
                 color: #2196F3;
             }
 
-            /* Styles pour les graphiques */
+            /* Styles existants pour les graphiques */
             .graphiques-container {
                 margin-top: 30px;
             }
@@ -303,6 +446,7 @@ class ChargeView {
             .chart-placeholder {
                 height: 200px;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 border: 2px dashed #ccc;
@@ -312,54 +456,13 @@ class ChargeView {
                 font-style: italic;
             }
 
-            /* Responsive */
-            @media (max-width: 768px) {
-                .graphique-section {
-                    padding: 15px;
-                }
-
-                .chart-image {
-                    width: 100%;
-                }
+            .chart-placeholder small {
+                margin-top: 5px;
+                font-size: 12px;
+                color: #999;
             }
 
-            /* NOUVEAUX STYLES POUR LES CONTRÔLES GRAPHIQUES */
-            .graphiques-controls {
-                margin: 20px 0;
-                padding: 15px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                background-color: #f9f9f9;
-                text-align: center;
-            }
-
-            .graphiques-controls h2 {
-                color: #333;
-                margin-top: 0;
-                margin-bottom: 15px;
-            }
-
-            .btn-update-charts {
-                text-decoration: none;
-            }
-
-            .btn-update-charts button {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-                font-weight: bold;
-                transition: background-color 0.3s;
-            }
-
-            .btn-update-charts button:hover {
-                background-color: #0b7dda;
-            }
-
-            /* 🆕 STYLES POUR LES ONGLETS DE GRAPHIQUES */
+            /* STYLES POUR LES ONGLETS DE GRAPHIQUES */
             .graphiques-tabs {
                 display: flex;
                 gap: 10px;
@@ -398,14 +501,34 @@ class ChargeView {
                 display: none;
             }
 
-            /* Ajuster les graphiques pour l'affichage en onglets */
-            .graphique-section {
-                margin-bottom: 20px; /* Réduire l'espace */
-                padding: 20px;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                background-color: #fafafa;
-                text-align: center;
+            /* Responsive */
+            @media (max-width: 768px) {
+                .week-selector {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+
+                .week-selector select {
+                    min-width: 100%;
+                }
+
+                .graphiques-tabs {
+                    flex-direction: column;
+                    gap: 5px;
+                }
+
+                .tab-button {
+                    padding: 10px 15px;
+                    font-size: 14px;
+                }
+
+                .graphique-section {
+                    padding: 15px;
+                }
+
+                .chart-image {
+                    width: 100%;
+                }
             }
         </style>
 

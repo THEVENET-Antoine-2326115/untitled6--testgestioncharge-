@@ -165,11 +165,43 @@ class DashboardView {
                         </div>
                     <?php endif; ?>
 
-                    <!-- Boutons d'action -->
+                    <!-- 🆕 NOUVELLE SECTION : Conversion par numéro d'affaire -->
+                    <div class="convert-by-number-section">
+                        <h3>🎯 Conversion sélective par numéro d'affaire</h3>
+                        <div class="convert-form-container">
+                            <p class="convert-description">
+                                Convertissez un fichier MPP spécifique en saisissant son numéro d'affaire.<br>
+                                <small>Format attendu : <code>24-09_0009</code> (pour un fichier nommé "AFF24-09_0009 planning en cours.mpp")</small>
+                            </p>
+
+                            <form action="index.php" method="POST" class="convert-form" id="convertForm">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="numero_affaire">Numéro d'affaire :</label>
+                                        <input type="text"
+                                               id="numero_affaire"
+                                               name="numero_affaire"
+                                               placeholder="Ex: 24-09_0009"
+                                               pattern="[0-9]{2}-[0-9]{2}_[0-9]{4}"
+                                               title="Format attendu : XX-XX_XXXX (ex: 24-09_0009)"
+                                               required>
+                                    </div>
+                                    <div class="form-group buttons-group">
+                                        <button type="submit" class="btn-convert-selective" onclick="setConvertAction('convert_by_number')">
+                                            🔄 Convertir ce fichier
+                                        </button>
+                                        <button type="submit" class="btn-delete-selective" onclick="setConvertAction('delete_by_number')">
+                                            🗑️ Supprimer le fichier converti
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="action" id="convertActionField" value="convert_by_number">
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Boutons d'action généraux -->
                     <div class="action-buttons">
-                        <a href="index.php?subaction=convert_files" class="btn-convert" onclick="return confirm('Lancer la conversion des fichiers MPP et l\'importation en base ?')">
-                            <button>Convertir les fichiers MPP</button>
-                        </a>
                         <a href="index.php?subaction=import" class="btn-import" onclick="return confirm('Importer les données de la base vers la mémoire ?')">
                             <button>Importer les données</button>
                         </a>
@@ -250,6 +282,48 @@ class DashboardView {
                                     }
                                 });
                             }
+
+                            // 🆕 Validation du formulaire de conversion
+                            const convertForm = document.getElementById('convertForm');
+                            if (convertForm) {
+                                convertForm.addEventListener('submit', function(e) {
+                                    const numeroAffaire = document.getElementById('numero_affaire').value.trim();
+                                    const action = document.getElementById('convertActionField').value;
+
+                                    if (!numeroAffaire) {
+                                        alert('Veuillez saisir un numéro d\'affaire.');
+                                        e.preventDefault();
+                                        return;
+                                    }
+
+                                    // Validation du format
+                                    const formatPattern = /^[0-9]{2}-[0-9]{2}_[0-9]{4}$/;
+                                    if (!formatPattern.test(numeroAffaire)) {
+                                        alert('Format invalide. Utilisez le format XX-XX_XXXX (ex: 24-09_0009)');
+                                        e.preventDefault();
+                                        return;
+                                    }
+
+                                    let confirmMsg = '';
+                                    if (action === 'delete_by_number') {
+                                        confirmMsg = `Supprimer le fichier XLSX converti contenant le numéro d'affaire "${numeroAffaire}" ?\n\n` +
+                                            `Le système recherchera dans le dossier 'converted' et supprimera le fichier correspondant.`;
+                                    } else {
+                                        confirmMsg = `Convertir le fichier avec le numéro d'affaire "${numeroAffaire}" ?\n\n` +
+                                            `Le système recherchera un fichier contenant ce numéro dans le dossier uploads.`;
+                                    }
+
+                                    if (!confirm(confirmMsg)) {
+                                        e.preventDefault();
+                                    }
+                                });
+                            }
+
+                            // 🆕 Fonction pour définir l'action de conversion/suppression
+                            window.setConvertAction = function(action) {
+                                document.getElementById('convertActionField').value = action;
+                                console.log('Action sélectionnée:', action);
+                            };
                         });
                     </script>
                 </div>
@@ -364,8 +438,9 @@ class DashboardView {
                             }
                         });
                     </script>
+                </div>
             </div>
-        </div>
+
         </body>
         </html>
         <?php

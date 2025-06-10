@@ -17,6 +17,61 @@ class DashboardController {
     private $view;
 
     /**
+     * 🆕 Gère la suppression d'un fichier XLSX converti par numéro d'affaire
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleDeleteByNumber($userInfo) {
+        try {
+            echo "<script>console.log('=== TRAITEMENT SUPPRESSION PAR NUMÉRO D\\'AFFAIRE ===');</script>";
+
+            // Récupérer et valider le numéro d'affaire
+            $numeroAffaire = trim($_POST['numero_affaire'] ?? '');
+
+            echo "<script>console.log('Numéro d\\'affaire reçu pour suppression: " . addslashes($numeroAffaire) . "');</script>";
+
+            // Validation côté serveur (même validation que pour la conversion)
+            $validationResult = $this->validateNumeroAffaire($numeroAffaire);
+            if (!$validationResult['success']) {
+                echo "<script>console.log('❌ Validation échouée: " . addslashes($validationResult['message']) . "');</script>";
+
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $validationResult);
+                return;
+            }
+
+            echo "<script>console.log('✅ Validation réussie');</script>";
+
+            // Lancer la suppression ciblée via le modèle
+            $deletionResult = $this->model->deleteConvertedFileByNumber($numeroAffaire);
+
+            if ($deletionResult['success']) {
+                echo "<script>console.log('✅ Suppression et reconstruction réussies');</script>";
+
+                // Forcer le rechargement des données après reconstruction
+                $this->model->refreshData();
+            } else {
+                echo "<script>console.log('❌ Erreur suppression: " . addslashes($deletionResult['message']) . "');</script>";
+            }
+
+            // Préparer les données et afficher avec le résultat
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $deletionResult);
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('💥 Exception suppression par numéro: " . addslashes($e->getMessage()) . "');</script>";
+
+            $result = [
+                'success' => false,
+                'message' => "Erreur lors de la suppression : " . $e->getMessage()
+            ];
+
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+        }
+    }
+
+    /**
      * Constructeur du DashboardController
      */
     public function __construct() {
@@ -37,16 +92,23 @@ class DashboardController {
         // Récupérer les informations de l'utilisateur
         $userInfo = $this->model->getUserInfo($userId);
 
-        // VÉRIFIER SI C'EST UN AJOUT OU SUPPRESSION DE CHARGE (POST)
+        // VÉRIFIER SI C'EST UNE ACTION POST
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $postAction = $_POST['action'] ?? '';
 
-            if ($postAction === 'add_charge') {
-                $this->handleAddCharge($userInfo);
-                return;
-            } elseif ($postAction === 'delete_charge') {
-                $this->handleDeleteCharge($userInfo);
-                return;
+            switch ($postAction) {
+                case 'add_charge':
+                    $this->handleAddCharge($userInfo);
+                    return;
+                case 'delete_charge':
+                    $this->handleDeleteCharge($userInfo);
+                    return;
+                case 'convert_by_number':
+                    $this->handleConvertByNumber($userInfo);
+                    return;
+                case 'delete_by_number':
+                    $this->handleDeleteByNumber($userInfo);
+                    return;
             }
         }
 
@@ -70,6 +132,103 @@ class DashboardController {
                 $this->handleDashboard($userInfo);
                 break;
         }
+    }
+
+    /**
+     * 🆕 Gère la conversion d'un fichier spécifique par numéro d'affaire
+     *
+     * @param array $userInfo Informations de l'utilisateur
+     */
+    private function handleConvertByNumber($userInfo) {
+        try {
+            echo "<script>console.log('=== TRAITEMENT CONVERSION PAR NUMÉRO D\\'AFFAIRE ===');</script>";
+
+            // Récupérer et valider le numéro d'affaire
+            $numeroAffaire = trim($_POST['numero_affaire'] ?? '');
+
+            echo "<script>console.log('Numéro d\\'affaire reçu: " . addslashes($numeroAffaire) . "');</script>";
+
+            // Validation côté serveur
+            $validationResult = $this->validateNumeroAffaire($numeroAffaire);
+            if (!$validationResult['success']) {
+                echo "<script>console.log('❌ Validation échouée: " . addslashes($validationResult['message']) . "');</script>";
+
+                $dashboardData = $this->prepareDashboardData();
+                echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $validationResult);
+                return;
+            }
+
+            echo "<script>console.log('✅ Validation réussie');</script>";
+
+            // Lancer la conversion ciblée via le modèle
+            $conversionResult = $this->model->processConversion($numeroAffaire);
+
+            if ($conversionResult['success']) {
+                echo "<script>console.log('✅ Conversion réussie');</script>";
+
+                // Forcer le rechargement des données après conversion
+                $this->model->refreshData();
+            } else {
+                echo "<script>console.log('❌ Erreur conversion: " . addslashes($conversionResult['message']) . "');</script>";
+            }
+
+            // Préparer les données et afficher avec le résultat
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $conversionResult);
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('💥 Exception conversion par numéro: " . addslashes($e->getMessage()) . "');</script>";
+
+            $result = [
+                'success' => false,
+                'message' => "Erreur lors de la conversion : " . $e->getMessage()
+            ];
+
+            $dashboardData = $this->prepareDashboardData();
+            echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
+        }
+    }
+
+    /**
+     * 🆕 Valide le format du numéro d'affaire
+     *
+     * @param string $numeroAffaire Numéro à valider
+     * @return array Résultat de la validation
+     */
+    private function validateNumeroAffaire($numeroAffaire) {
+        echo "<script>console.log('=== VALIDATION NUMÉRO D\\'AFFAIRE ===');</script>";
+
+        // Vérifier que le champ n'est pas vide
+        if (empty($numeroAffaire)) {
+            return [
+                'success' => false,
+                'message' => "Le numéro d'affaire est obligatoire."
+            ];
+        }
+
+        // Vérifier le format : XX-XX_XXXX (ex: 24-09_0009)
+        $pattern = '/^[0-9]{2}-[0-9]{2}_[0-9]{4}$/';
+        if (!preg_match($pattern, $numeroAffaire)) {
+            return [
+                'success' => false,
+                'message' => "Format invalide. Le numéro d'affaire doit respecter le format XX-XX_XXXX (ex: 24-09_0009)."
+            ];
+        }
+
+        // Vérifier la longueur (sécurité supplémentaire)
+        if (strlen($numeroAffaire) !== 10) {
+            return [
+                'success' => false,
+                'message' => "Longueur invalide. Le numéro d'affaire doit faire exactement 10 caractères."
+            ];
+        }
+
+        echo "<script>console.log('✅ Numéro d\\'affaire valide: " . addslashes($numeroAffaire) . "');</script>";
+
+        return [
+            'success' => true,
+            'message' => "Numéro d'affaire valide"
+        ];
     }
 
     /**

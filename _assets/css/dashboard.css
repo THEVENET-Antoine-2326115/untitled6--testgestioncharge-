@@ -333,3 +333,255 @@
 .hidden {
     display: none;
 }
+
+.convert-by-number-section {
+    margin-top: 30px;
+    padding: 20px;
+    border: 2px solid #2196F3;
+    border-radius: 8px;
+    background-color: #f0f8ff;
+}
+
+.convert-by-number-section h3 {
+    color: #1976D2;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 10px;
+}
+
+.convert-form-container {
+    max-width: 800px;
+}
+
+.convert-description {
+    margin-bottom: 20px;
+    color: #333;
+    line-height: 1.6;
+}
+
+.convert-description small {
+    color: #666;
+    font-style: italic;
+}
+
+.convert-description code {
+    background-color: #e3f2fd;
+    color: #1976D2;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+.convert-form {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.convert-form .form-row {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+}
+
+.convert-form .form-group {
+    flex: 1;
+}
+
+.convert-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.convert-form .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.3s;
+}
+
+.convert-form .form-group input:focus {
+    border-color: #2196F3;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.btn-convert-selective {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    white-space: nowrap;
+}
+
+.btn-convert-selective:hover {
+    background-color: #1976D2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Responsive pour la conversion sélective */
+@media (max-width: 768px) {
+    .convert-form .form-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .btn-convert-selective {
+        width: 100%;
+        padding: 15px;
+    }
+}
+
+.convert-by-number-section {
+    margin-top: 30px;
+    padding: 20px;
+    border: 2px solid #2196F3;
+    border-radius: 8px;
+    background-color: #f0f8ff;
+}
+
+.convert-by-number-section h3 {
+    color: #1976D2;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 10px;
+}
+
+.convert-form-container {
+    max-width: 800px;
+}
+
+.convert-description {
+    margin-bottom: 20px;
+    color: #333;
+    line-height: 1.6;
+}
+
+.convert-description small {
+    color: #666;
+    font-style: italic;
+}
+
+.convert-description code {
+    background-color: #e3f2fd;
+    color: #1976D2;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+.convert-form {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.convert-form .form-row {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+}
+
+.convert-form .form-group {
+    flex: 1;
+}
+
+.convert-form .form-group.buttons-group {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.convert-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.convert-form .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.3s;
+}
+
+.convert-form .form-group input:focus {
+    border-color: #2196F3;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.btn-convert-selective, .btn-delete-selective {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+    min-width: 200px;
+}
+
+.btn-convert-selective {
+    background-color: #2196F3;
+    color: white;
+}
+
+.btn-convert-selective:hover {
+    background-color: #1976D2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.btn-delete-selective {
+    background-color: #f44336;
+    color: white;
+}
+
+.btn-delete-selective:hover {
+    background-color: #d32f2f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Responsive pour la conversion sélective */
+@media (max-width: 768px) {
+    .convert-form .form-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .convert-form .form-group.buttons-group {
+        flex-direction: row;
+        gap: 10px;
+    }
+
+    .btn-convert-selective, .btn-delete-selective {
+        width: 100%;
+        padding: 15px;
+        min-width: auto;
+    }
+}

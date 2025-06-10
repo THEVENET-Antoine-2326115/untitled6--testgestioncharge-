@@ -88,15 +88,154 @@ class DashboardModel {
     }
 
     /**
-     * Lance le processus de conversion des fichiers MPP vers XLSX et importation en BD
+     * Lance le processus de conversion ciblée par numéro d'affaire
+     * 🗑️ ANCIENNE VERSION GLOBALE SUPPRIMÉE
      *
+     * @param string $numeroAffaire Numéro d'affaire pour conversion ciblée (obligatoire)
      * @return array Résultat du processus complet
      */
-    public function processConversion() {
-        $result = $this->lectureDossierModel->processAllFiles();
+    public function processConversion($numeroAffaire) {
+        if (empty($numeroAffaire)) {
+            return [
+                'success' => false,
+                'message' => 'Le numéro d\'affaire est obligatoire pour la conversion ciblée.'
+            ];
+        }
+
+        // Conversion ciblée par numéro d'affaire
+        $result = $this->lectureDossierModel->processFileByNumber($numeroAffaire);
 
         // Forcer le rechargement des données après la conversion
         $this->importModel->refreshData();
+
+        return $result;
+    }
+
+    /**
+     * 🆕 Supprime un fichier XLSX converti par numéro d'affaire et reconstruit la BD
+     * Orchestration respectant le modèle MVC
+     *
+     * @param string $numeroAffaire Numéro d'affaire du fichier à supprimer
+     * @return array Résultat de la suppression et reconstruction
+     */
+    public function deleteConvertedFileByNumber($numeroAffaire) {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'numero_affaire' => $numeroAffaire,
+            'file_deletion' => null,
+            'database_clear' => null,
+            'reconstruction' => null
+        ];
+
+        try {
+            // Étape 1 : Supprimer le fichier via LectureDossierModel
+            $fileDeletionResult = $this->lectureDossierModel->deleteConvertedFileByNumber($numeroAffaire);
+            $result['file_deletion'] = $fileDeletionResult;
+
+            if (!$fileDeletionResult['success']) {
+                $result['message'] = $fileDeletionResult['message'];
+                return $result;
+            }
+
+            // Étape 2 : Vider la base de données via ImportModel
+            $databaseClearResult = $this->importModel->clearTable();
+            $result['database_clear'] = $databaseClearResult;
+
+            if (!$databaseClearResult) {
+                $result['message'] = "Fichier supprimé mais erreur lors du vidage de la base de données.";
+                return $result;
+            }
+
+            // Étape 3 : Obtenir la liste des fichiers XLSX restants
+            $remainingFiles = $this->lectureDossierModel->getAllConvertedFiles();
+
+            // Étape 4 : Réimporter tous les fichiers restants
+            $reconstructionResult = $this->reconstructDatabaseFromFiles($remainingFiles);
+            $result['reconstruction'] = $reconstructionResult;
+
+            if ($reconstructionResult['success']) {
+                $result['success'] = true;
+                $result['message'] = sprintf(
+                    "Suppression et reconstruction terminées avec succès !\n\n" .
+                    "🗑️ Fichier supprimé : %s\n" .
+                    "💾 Base de données vidée et reconstruite\n" .
+                    "📁 Fichiers XLSX restants traités : %d\n" .
+                    "📊 Nouvelles entrées importées : %d\n" .
+                    "⚠️ Erreurs d'importation : %d",
+                    $fileDeletionResult['deleted_file']['name'],
+                    $reconstructionResult['files_processed'],
+                    $reconstructionResult['total_imported'],
+                    $reconstructionResult['total_errors']
+                );
+            } else {
+                $result['message'] = "Fichier supprimé et base vidée, mais erreur lors de la reconstruction : " . $reconstructionResult['message'];
+            }
+
+        } catch (\Exception $e) {
+            $result['message'] = "Erreur inattendue lors du processus : " . $e->getMessage();
+        }
+
+        return $result;
+    }
+
+    /**
+     * 🆕 Reconstruit la base de données à partir d'une liste de fichiers XLSX
+     * Respecte le MVC : utilise ExcelToBdModel pour l'importation
+     *
+     * @param array $files Liste des fichiers à importer
+     * @return array Résultat de la reconstruction
+     */
+    private function reconstructDatabaseFromFiles($files) {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'files_processed' => 0,
+            'total_imported' => 0,
+            'total_errors' => 0,
+            'details' => []
+        ];
+
+        try {
+            if (empty($files)) {
+                $result['success'] = true;
+                $result['message'] = "Aucun fichier XLSX à réimporter";
+                return $result;
+            }
+
+            // Initialiser ExcelToBdModel pour l'importation
+            $excelToBdModel = new \modules\blog\models\ExcelToBdModel();
+
+            // Réimporter chaque fichier XLSX
+            foreach ($files as $fileInfo) {
+                $importResult = $excelToBdModel->importExcelToDatabase($fileInfo['path']);
+                $result['files_processed']++;
+
+                if ($importResult['success']) {
+                    $result['total_imported'] += $importResult['importCount'];
+                } else {
+                    $result['total_errors']++;
+                }
+
+                $result['details'][] = [
+                    'file' => $fileInfo['name'],
+                    'success' => $importResult['success'],
+                    'imported' => $importResult['importCount'] ?? 0,
+                    'message' => $importResult['message']
+                ];
+            }
+
+            $result['success'] = true;
+            $result['message'] = sprintf(
+                "Réimportation terminée: %d fichier(s) traité(s), %d entrée(s) importée(s), %d erreur(s)",
+                $result['files_processed'],
+                $result['total_imported'],
+                $result['total_errors']
+            );
+
+        } catch (\Exception $e) {
+            $result['message'] = "Erreur lors de la réimportation : " . $e->getMessage();
+        }
 
         return $result;
     }

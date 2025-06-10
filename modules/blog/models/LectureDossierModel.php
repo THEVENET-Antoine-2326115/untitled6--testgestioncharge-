@@ -11,6 +11,181 @@ namespace modules\blog\models;
 class LectureDossierModel {
 
     /**
+     * 🆕 Supprime un fichier XLSX converti par numéro d'affaire (fichier uniquement)
+     * Respecte le MVC : ne touche que aux fichiers
+     *
+     * @param string $numeroAffaire Numéro d'affaire du fichier à supprimer
+     * @return array Résultat de la suppression de fichier
+     */
+    public function deleteConvertedFileByNumber($numeroAffaire) {
+        $this->console_log("=== DÉBUT SUPPRESSION FICHIER XLSX ===");
+        $this->console_log("Numéro d'affaire recherché: " . $numeroAffaire);
+        $this->log_message("=== SUPPRESSION FICHIER XLSX PAR NUMÉRO D'AFFAIRE ===");
+        $this->log_message("Recherche du fichier XLSX pour: " . $numeroAffaire);
+
+        $result = [
+            'success' => false,
+            'message' => '',
+            'numero_affaire' => $numeroAffaire,
+            'file_found' => null,
+            'deleted_file' => null
+        ];
+
+        try {
+            // Rechercher le fichier XLSX correspondant dans le dossier converted
+            $this->console_log("=== RECHERCHE DANS LE DOSSIER CONVERTED ===");
+            $foundFile = $this->findXlsxFileByNumber($numeroAffaire);
+
+            if (!$foundFile) {
+                $this->console_log("❌ Aucun fichier XLSX trouvé pour le numéro: " . $numeroAffaire);
+                $this->log_message("❌ Aucun fichier XLSX trouvé pour le numéro: " . $numeroAffaire);
+
+                $result['message'] = "Aucun fichier XLSX converti trouvé contenant le numéro d'affaire \"$numeroAffaire\" dans le dossier converted.";
+                return $result;
+            }
+
+            $this->console_log("✅ Fichier XLSX trouvé: " . $foundFile['name']);
+            $this->log_message("✅ Fichier XLSX trouvé: " . $foundFile['name']);
+            $result['file_found'] = $foundFile;
+
+            // Supprimer le fichier XLSX
+            $this->console_log("=== SUPPRESSION DU FICHIER XLSX ===");
+            $this->log_message("Suppression du fichier: " . $foundFile['name']);
+
+            if (!unlink($foundFile['path'])) {
+                $this->console_log("❌ Erreur lors de la suppression du fichier: " . $foundFile['name']);
+                $this->log_message("❌ Erreur lors de la suppression du fichier: " . $foundFile['name']);
+
+                $result['message'] = "Erreur lors de la suppression du fichier \"" . $foundFile['name'] . "\". Vérifiez les permissions.";
+                return $result;
+            }
+
+            $this->console_log("✅ Fichier supprimé avec succès: " . $foundFile['name']);
+            $this->log_message("✅ Fichier supprimé avec succès: " . $foundFile['name']);
+
+            $result['success'] = true;
+            $result['deleted_file'] = $foundFile;
+            $result['message'] = "Fichier \"" . $foundFile['name'] . "\" supprimé avec succès.";
+
+        } catch (\Exception $e) {
+            $this->console_log("💥 EXCEPTION: " . $e->getMessage());
+            $this->log_message("💥 EXCEPTION: " . $e->getMessage());
+
+            $result['message'] = "Erreur inattendue lors de la suppression : " . $e->getMessage();
+        }
+
+        $this->console_log("=== FIN SUPPRESSION FICHIER XLSX ===");
+        $this->log_message("=== FIN SUPPRESSION FICHIER XLSX ===");
+
+        return $result;
+    }
+
+    /**
+     * 🆕 Récupère tous les fichiers XLSX dans le dossier converted
+     * Respecte le MVC : ne fait que lire les fichiers
+     *
+     * @return array Liste des fichiers XLSX avec leurs informations
+     */
+    public function getAllConvertedFiles() {
+        $this->console_log("=== RÉCUPÉRATION FICHIERS CONVERTED ===");
+
+        $convertedFiles = [];
+
+        try {
+            // Vérifier que le dossier converted existe
+            if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
+                $this->console_log("❌ Dossier converted introuvable: " . self::XLSX_OUTPUT_FOLDER);
+                return $convertedFiles;
+            }
+
+            // Lire tous les fichiers du dossier converted
+            $files = scandir(self::XLSX_OUTPUT_FOLDER);
+            $this->console_log("Fichiers scannés: " . count($files));
+
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+
+                $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+
+                // Ne récupérer que les fichiers XLSX
+                if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
+                    $this->console_log("Fichier XLSX trouvé: " . $file);
+                    $convertedFiles[] = [
+                        'name' => $file,
+                        'path' => $filePath,
+                        'size' => filesize($filePath),
+                        'modified' => filemtime($filePath)
+                    ];
+                }
+            }
+
+            $this->console_log("Total fichiers XLSX converted: " . count($convertedFiles));
+
+        } catch (\Exception $e) {
+            $this->console_log("💥 EXCEPTION récupération fichiers: " . $e->getMessage());
+        }
+
+        return $convertedFiles;
+    }
+
+    /**
+     * 🆕 Recherche un fichier XLSX dans le dossier converted par numéro d'affaire
+     *
+     * @param string $numeroAffaire Numéro d'affaire à rechercher
+     * @return array|null Informations du fichier trouvé ou null
+     */
+    private function findXlsxFileByNumber($numeroAffaire) {
+        $this->console_log("=== RECHERCHE FICHIER XLSX PAR NUMÉRO ===");
+        $this->console_log("Recherche de: " . $numeroAffaire);
+
+        // Vérifier que le dossier converted existe
+        if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
+            $this->console_log("❌ Dossier converted introuvable: " . self::XLSX_OUTPUT_FOLDER);
+            return null;
+        }
+
+        // Lire tous les fichiers du dossier converted
+        $files = scandir(self::XLSX_OUTPUT_FOLDER);
+        $this->console_log("Fichiers dans le dossier converted: " . count($files));
+
+        foreach ($files as $file) {
+            // Ignorer les dossiers spéciaux
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $this->console_log("Examen du fichier: " . $file);
+
+            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+
+            // Vérifier si c'est un fichier XLSX
+            if (!is_file($filePath) || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'xlsx') {
+                $this->console_log("Ignoré (pas un fichier XLSX): " . $file);
+                continue;
+            }
+
+            // Vérifier si le nom du fichier contient le numéro d'affaire
+            if ($this->fileContainsNumber($file, $numeroAffaire)) {
+                $this->console_log("🎯 TROUVÉ! Fichier XLSX correspondant: " . $file);
+
+                return [
+                    'name' => $file,
+                    'path' => $filePath,
+                    'size' => filesize($filePath),
+                    'modified' => filemtime($filePath)
+                ];
+            } else {
+                $this->console_log("Numéro non trouvé dans: " . $file);
+            }
+        }
+
+        $this->console_log("❌ Aucun fichier XLSX trouvé contenant le numéro: " . $numeroAffaire);
+        return null;
+    }
+
+    /**
      * Dossier source contenant les fichiers MPP (à la racine du projet)
      */
     const MPP_SOURCE_FOLDER = __DIR__ . '/../../../uploads';
@@ -51,75 +226,128 @@ class LectureDossierModel {
     }
 
     /**
-     * Lance le processus complet de lecture, conversion et importation
+     * 🆕 Lance la conversion d'un fichier spécifique par numéro d'affaire
      *
+     * @param string $numeroAffaire Numéro d'affaire à rechercher (ex: "24-09_0009")
      * @return array Résultat détaillé du processus
      */
-    public function processAllFiles() {
-        $this->console_log("=== DÉBUT DU PROCESSUS COMPLET ===");
+    public function processFileByNumber($numeroAffaire) {
+        $this->console_log("=== DÉBUT PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
+        $this->console_log("Numéro d'affaire recherché: " . $numeroAffaire);
+        $this->log_message("=== CONVERSION CIBLÉE PAR NUMÉRO D'AFFAIRE ===");
+        $this->log_message("Recherche du fichier pour: " . $numeroAffaire);
 
-        $results = [
-            'conversion' => [],
-            'importation' => [],
-            'summary' => [
-                'mpp_found' => 0,
-                'mpp_converted' => 0,
-                'mpp_errors' => 0,
-                'xlsx_found' => 0,
-                'xlsx_imported' => 0,
-                'xlsx_errors' => 0
-            ]
+        $result = [
+            'success' => false,
+            'message' => '',
+            'numero_affaire' => $numeroAffaire,
+            'file_found' => null,
+            'conversion' => null,
+            'importation' => null
         ];
 
-        $this->log_message("=== DÉBUT DU PROCESSUS COMPLET ===");
+        try {
+            // Étape 1 : Rechercher le fichier MPP correspondant
+            $this->console_log("=== ÉTAPE 1: RECHERCHE DU FICHIER MPP ===");
+            $foundFile = $this->findMppFileByNumber($numeroAffaire);
 
-        // Étape 1 : Parcourir le dossier source et convertir les fichiers MPP
-        $this->console_log("=== ÉTAPE 1: CONVERSION DES FICHIERS MPP ===");
-        $this->log_message("Étape 1 : Conversion des fichiers MPP");
-        $conversionResults = $this->convertMppFiles();
-        $results['conversion'] = $conversionResults;
+            if (!$foundFile) {
+                $this->console_log("❌ Aucun fichier trouvé pour le numéro: " . $numeroAffaire);
+                $this->log_message("❌ Aucun fichier trouvé pour le numéro: " . $numeroAffaire);
 
-        // Étape 2 : Parcourir le dossier de destination et importer les fichiers XLSX
-        $this->console_log("=== ÉTAPE 2: IMPORTATION DES FICHIERS XLSX ===");
-        $this->log_message("Étape 2 : Importation des fichiers XLSX");
-        $importationResults = $this->importXlsxFiles();
-        $results['importation'] = $importationResults;
+                $result['message'] = "Aucun fichier MPP trouvé contenant le numéro d'affaire \"$numeroAffaire\" dans le dossier uploads.";
+                return $result;
+            }
 
-        // Calculer le résumé
-        $results['summary'] = $this->calculateSummary($conversionResults, $importationResults);
+            $this->console_log("✅ Fichier trouvé: " . $foundFile['name']);
+            $this->log_message("✅ Fichier trouvé: " . $foundFile['name']);
+            $result['file_found'] = $foundFile;
 
-        $this->console_log("=== FIN DU PROCESSUS COMPLET ===");
-        $this->log_message("=== FIN DU PROCESSUS COMPLET ===");
-        $this->displaySummary($results['summary']);
+            // Étape 2 : Convertir le fichier MPP vers XLSX
+            $this->console_log("=== ÉTAPE 2: CONVERSION MPP → XLSX ===");
+            $this->log_message("Étape 2 : Conversion du fichier " . $foundFile['name']);
 
-        return $results;
+            $conversionResult = $this->mppConverter->convertMppToXlsx($foundFile['path']);
+            $result['conversion'] = $conversionResult;
+
+            if (!$conversionResult['success']) {
+                $this->console_log("❌ Erreur de conversion: " . $conversionResult['message']);
+                $this->log_message("❌ Erreur de conversion: " . $conversionResult['message']);
+
+                $result['message'] = "Erreur lors de la conversion du fichier \"" . $foundFile['name'] . "\" : " . $conversionResult['message'];
+                return $result;
+            }
+
+            $this->console_log("✅ Conversion réussie: " . $conversionResult['outputFile']);
+            $this->log_message("✅ Conversion réussie: " . $conversionResult['outputFile']);
+
+            // Étape 3 : Importer le fichier XLSX en base de données
+            $this->console_log("=== ÉTAPE 3: IMPORTATION XLSX → BASE ===");
+            $this->log_message("Étape 3 : Importation du fichier " . $conversionResult['outputFile']);
+
+            $importationResult = $this->excelToBdModel->importExcelToDatabase($conversionResult['outputPath']);
+            $result['importation'] = $importationResult;
+
+            if (!$importationResult['success']) {
+                $this->console_log("❌ Erreur d'importation: " . $importationResult['message']);
+                $this->log_message("❌ Erreur d'importation: " . $importationResult['message']);
+
+                $result['message'] = "Conversion réussie mais erreur lors de l'importation : " . $importationResult['message'];
+                return $result;
+            }
+
+            $this->console_log("✅ Importation réussie: " . $importationResult['importCount'] . " entrées");
+            $this->log_message("✅ Importation réussie: " . $importationResult['importCount'] . " entrées");
+
+            // Succès complet
+            $result['success'] = true;
+            $result['message'] = sprintf(
+                "Conversion réussie !\n" .
+                "• Fichier trouvé : %s\n" .
+                "• Fichier converti : %s\n" .
+                "• Entrées importées : %d\n" .
+                "• Erreurs : %d",
+                $foundFile['name'],
+                $conversionResult['outputFile'],
+                $importationResult['importCount'],
+                $importationResult['errorCount']
+            );
+
+            $this->console_log("🎉 PROCESSUS TERMINÉ AVEC SUCCÈS");
+            $this->log_message("🎉 PROCESSUS TERMINÉ AVEC SUCCÈS");
+
+        } catch (\Exception $e) {
+            $this->console_log("💥 EXCEPTION: " . $e->getMessage());
+            $this->log_message("💥 EXCEPTION: " . $e->getMessage());
+
+            $result['message'] = "Erreur inattendue lors du processus : " . $e->getMessage();
+        }
+
+        $this->console_log("=== FIN PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
+        $this->log_message("=== FIN PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
+
+        return $result;
     }
 
     /**
-     * Parcourt le dossier source et convertit tous les fichiers MPP
+     * 🆕 Recherche un fichier MPP par numéro d'affaire
      *
-     * @return array Résultats de la conversion
+     * @param string $numeroAffaire Numéro d'affaire à rechercher
+     * @return array|null Informations du fichier trouvé ou null
      */
-    private function convertMppFiles() {
-        $results = [];
-
-        $this->console_log("=== DÉBUT convertMppFiles() ===");
-        $this->console_log("Parcours du dossier source : " . self::MPP_SOURCE_FOLDER);
-        $this->log_message("Parcours du dossier source : " . self::MPP_SOURCE_FOLDER);
+    private function findMppFileByNumber($numeroAffaire) {
+        $this->console_log("=== RECHERCHE FICHIER PAR NUMÉRO ===");
+        $this->console_log("Recherche de: " . $numeroAffaire);
 
         // Vérifier que le dossier source existe
         if (!is_dir(self::MPP_SOURCE_FOLDER)) {
-            $error = "ERREUR : Le dossier source n'existe pas : " . self::MPP_SOURCE_FOLDER;
-            $this->console_log($error);
-            $this->log_message($error);
-            return $results;
+            $this->console_log("❌ Dossier source introuvable: " . self::MPP_SOURCE_FOLDER);
+            return null;
         }
-
-        $this->console_log("Dossier source trouvé et accessible");
 
         // Lire tous les fichiers du dossier
         $files = scandir(self::MPP_SOURCE_FOLDER);
-        $this->console_log("Nombre de fichiers/dossiers trouvés: " . count($files));
+        $this->console_log("Fichiers dans le dossier: " . count($files));
 
         foreach ($files as $file) {
             // Ignorer les dossiers spéciaux
@@ -131,205 +359,70 @@ class LectureDossierModel {
 
             $filePath = self::MPP_SOURCE_FOLDER . DIRECTORY_SEPARATOR . $file;
 
-            // Vérifier si c'est un fichier
-            if (!is_file($filePath)) {
-                $this->console_log("Ignoré (pas un fichier) : " . $file);
-                $this->log_message("Ignoré (pas un fichier) : " . $file);
+            // Vérifier si c'est un fichier MPP
+            if (!is_file($filePath) || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'mpp') {
+                $this->console_log("Ignoré (pas un fichier MPP): " . $file);
                 continue;
             }
 
-            // Déterminer le type de fichier
-            $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            $this->console_log("Extension détectée pour " . $file . ": " . $fileExtension);
+            // Vérifier si le nom du fichier contient le numéro d'affaire
+            if ($this->fileContainsNumber($file, $numeroAffaire)) {
+                $this->console_log("🎯 TROUVÉ! Fichier correspondant: " . $file);
 
-            if ($fileExtension === 'mpp') {
-                $this->console_log("✓ Fichier MPP trouvé : " . $file);
-                $this->log_message("Fichier MPP trouvé : " . $file);
-
-                // Lancer la conversion avec MppConverterModel
-                $this->console_log("Lancement de la conversion pour: " . $file);
-                $conversionResult = $this->mppConverter->convertMppToXlsx($filePath);
-
-                $results[$file] = [
-                    'type' => 'mpp',
+                return [
+                    'name' => $file,
                     'path' => $filePath,
-                    'conversion' => $conversionResult
+                    'size' => filesize($filePath),
+                    'modified' => filemtime($filePath)
                 ];
-
-                if ($conversionResult['success']) {
-                    $this->console_log("✓ Conversion réussie : " . $file . " -> " . $conversionResult['outputFile']);
-                    $this->log_message("✓ Conversion réussie : " . $file . " -> " . $conversionResult['outputFile']);
-                } else {
-                    $this->console_log("✗ Erreur conversion : " . $file . " - " . $conversionResult['message']);
-                    $this->log_message("✗ Erreur conversion : " . $file . " - " . $conversionResult['message']);
-                }
             } else {
-                $this->console_log("Fichier ignoré (pas MPP) : " . $file . " (extension: " . $fileExtension . ")");
-                $this->log_message("Fichier ignoré (pas MPP) : " . $file . " (extension: " . $fileExtension . ")");
-                $results[$file] = [
-                    'type' => $fileExtension,
-                    'path' => $filePath,
-                    'ignored' => true,
-                    'reason' => 'Not an MPP file'
-                ];
+                $this->console_log("Numéro non trouvé dans: " . $file);
             }
         }
 
-        $this->console_log("=== FIN convertMppFiles() ===");
-        $this->console_log("Nombre de résultats de conversion: " . count($results));
-
-        return $results;
+        $this->console_log("❌ Aucun fichier MPP trouvé contenant le numéro: " . $numeroAffaire);
+        return null;
     }
 
     /**
-     * Parcourt le dossier de destination et importe tous les fichiers XLSX
+     * 🆕 Vérifie si un nom de fichier contient le numéro d'affaire
      *
-     * @return array Résultats de l'importation
+     * @param string $fileName Nom du fichier
+     * @param string $numeroAffaire Numéro d'affaire à chercher
+     * @return bool True si le numéro est trouvé
      */
-    private function importXlsxFiles() {
-        $results = [];
+    private function fileContainsNumber($fileName, $numeroAffaire) {
+        $this->console_log("Vérification: '" . $numeroAffaire . "' dans '" . $fileName . "'");
 
-        $this->console_log("=== DÉBUT importXlsxFiles() ===");
-        $this->console_log("Parcours du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
-        $this->log_message("Parcours du dossier de destination : " . self::XLSX_OUTPUT_FOLDER);
+        // Recherche exacte du numéro d'affaire dans le nom du fichier
+        $found = (strpos($fileName, $numeroAffaire) !== false);
 
-        // Vérifier que le dossier de destination existe
-        if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
-            $error = "ERREUR : Le dossier de destination n'existe pas : " . self::XLSX_OUTPUT_FOLDER;
-            $this->console_log($error);
-            $this->log_message($error);
-            return $results;
-        }
+        $this->console_log("Résultat: " . ($found ? "TROUVÉ" : "PAS TROUVÉ"));
 
-        $this->console_log("Dossier destination trouvé et accessible");
-
-        // Lire tous les fichiers du dossier
-        $files = scandir(self::XLSX_OUTPUT_FOLDER);
-        $this->console_log("Nombre de fichiers/dossiers trouvés: " . count($files));
-
-        foreach ($files as $file) {
-            // Ignorer les dossiers spéciaux
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-
-            $this->console_log("Examen du fichier: " . $file);
-
-            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
-
-            // Vérifier si c'est un fichier
-            if (!is_file($filePath)) {
-                $this->console_log("Ignoré (pas un fichier) : " . $file);
-                $this->log_message("Ignoré (pas un fichier) : " . $file);
-                continue;
-            }
-
-            // Déterminer le type de fichier
-            $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            $this->console_log("Extension détectée pour " . $file . ": " . $fileExtension);
-
-            if ($fileExtension === 'xlsx') {
-                $this->console_log("✓ Fichier XLSX trouvé : " . $file);
-                $this->log_message("Fichier XLSX trouvé : " . $file);
-
-                // Lancer l'importation avec ExcelToBdModel
-                $this->console_log("Lancement de l'importation pour: " . $file);
-                $importResult = $this->excelToBdModel->importExcelToDatabase($filePath);
-
-                $results[$file] = [
-                    'type' => 'xlsx',
-                    'path' => $filePath,
-                    'importation' => $importResult
-                ];
-
-                if ($importResult['success']) {
-                    $this->console_log("✓ Importation réussie : " . $file . " - " . $importResult['importCount'] . " entrées");
-                    $this->log_message("✓ Importation réussie : " . $file . " - " . $importResult['importCount'] . " entrées");
-                } else {
-                    $this->console_log("✗ Erreur importation : " . $file . " - " . $importResult['message']);
-                    $this->log_message("✗ Erreur importation : " . $file . " - " . $importResult['message']);
-                }
-            } else {
-                $this->console_log("Fichier ignoré (pas XLSX) : " . $file . " (extension: " . $fileExtension . ")");
-                $this->log_message("Fichier ignoré (pas XLSX) : " . $file . " (extension: " . $fileExtension . ")");
-                $results[$file] = [
-                    'type' => $fileExtension,
-                    'path' => $filePath,
-                    'ignored' => true,
-                    'reason' => 'Not an XLSX file'
-                ];
-            }
-        }
-
-        $this->console_log("=== FIN importXlsxFiles() ===");
-        $this->console_log("Nombre de résultats d'importation: " . count($results));
-
-        return $results;
+        return $found;
     }
 
     /**
-     * Calcule le résumé des opérations
+     * Lance le processus complet de lecture, conversion et importation
+     * 🗑️ OBSOLÈTE - Remplacé par la conversion ciblée par numéro d'affaire
      *
-     * @param array $conversionResults Résultats de conversion
-     * @param array $importationResults Résultats d'importation
-     * @return array Résumé calculé
+     * @deprecated Utiliser processFileByNumber() à la place
+     * @return array Résultat détaillé du processus
      */
-    private function calculateSummary($conversionResults, $importationResults) {
-        $this->console_log("=== CALCUL DU RÉSUMÉ ===");
-
-        $summary = [
-            'mpp_found' => 0,
-            'mpp_converted' => 0,
-            'mpp_errors' => 0,
-            'xlsx_found' => 0,
-            'xlsx_imported' => 0,
-            'xlsx_errors' => 0
+    public function processAllFiles() {
+        // Méthode conservée pour compatibilité mais vidée
+        return [
+            'conversion' => [],
+            'importation' => [],
+            'summary' => [
+                'mpp_found' => 0,
+                'mpp_converted' => 0,
+                'mpp_errors' => 0,
+                'xlsx_found' => 0,
+                'xlsx_imported' => 0,
+                'xlsx_errors' => 0
+            ]
         ];
-
-        // Analyser les résultats de conversion
-        foreach ($conversionResults as $file => $result) {
-            if ($result['type'] === 'mpp') {
-                $summary['mpp_found']++;
-                if (isset($result['conversion']['success']) && $result['conversion']['success']) {
-                    $summary['mpp_converted']++;
-                } else {
-                    $summary['mpp_errors']++;
-                }
-            }
-        }
-
-        // Analyser les résultats d'importation
-        foreach ($importationResults as $file => $result) {
-            if ($result['type'] === 'xlsx') {
-                $summary['xlsx_found']++;
-                if (isset($result['importation']['success']) && $result['importation']['success']) {
-                    $summary['xlsx_imported']++;
-                } else {
-                    $summary['xlsx_errors']++;
-                }
-            }
-        }
-
-        $this->console_log("Résumé calculé: " . json_encode($summary));
-
-        return $summary;
-    }
-
-    /**
-     * Affiche le résumé des opérations
-     *
-     * @param array $summary Résumé à afficher
-     */
-    private function displaySummary($summary) {
-        $this->console_log("=== AFFICHAGE DU RÉSUMÉ ===");
-        $this->log_message("=== RÉSUMÉ DES OPÉRATIONS ===");
-        $this->log_message("Fichiers MPP trouvés : " . $summary['mpp_found']);
-        $this->log_message("Fichiers MPP convertis : " . $summary['mpp_converted']);
-        $this->log_message("Erreurs de conversion : " . $summary['mpp_errors']);
-        $this->log_message("Fichiers XLSX trouvés : " . $summary['xlsx_found']);
-        $this->log_message("Fichiers XLSX importés : " . $summary['xlsx_imported']);
-        $this->log_message("Erreurs d'importation : " . $summary['xlsx_errors']);
-        $this->log_message("=============================");
     }
 
     /**
