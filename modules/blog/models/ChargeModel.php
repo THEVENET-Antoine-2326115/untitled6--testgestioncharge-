@@ -6,6 +6,9 @@ namespace modules\blog\models;
  *
  * Cette classe gère l'analyse de la charge de travail à partir des données
  * récupérées depuis la base de données via ImportModel.
+ *
+ * VERSION REFACTORISÉE : Sélection libre de période (date début → date fin)
+ * Suppression du système de semaines prédéfinies
  */
 class ChargeModel {
     /**
@@ -64,6 +67,312 @@ class ChargeModel {
             'dateFin' => $dateFin
         ];
     }
+
+    /**
+     * 🆕 NOUVELLE MÉTHODE : Récupère les données quotidiennes pour une période libre
+     *
+     * @param string $dateDebut Date de début de la période (format Y-m-d)
+     * @param string $dateFin Date de fin de la période (format Y-m-d)
+     * @return array Données formatées pour cette période
+     */
+    public function getDailyDataForPeriod($dateDebut, $dateFin) {
+        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION DONNÉES POUR PÉRIODE LIBRE ===');</script>";
+        echo "<script>console.log('[ChargeModel] Période demandée: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . "');</script>";
+
+        try {
+            // Validation et création des objets DateTime
+            $debutPeriode = new \DateTime($dateDebut);
+            $finPeriode = new \DateTime($dateFin);
+
+            // Validation : début doit être antérieur à la fin
+            if ($debutPeriode > $finPeriode) {
+                echo "<script>console.log('[ChargeModel] Erreur: Date début postérieure à date fin');</script>";
+                return ['error' => 'La date de début doit être antérieure à la date de fin.'];
+            }
+
+            // Calcul du nombre de jours dans la période
+            $nombreJours = $this->calculateWorkingDaysBetween($debutPeriode, $finPeriode);
+            echo "<script>console.log('[ChargeModel] Jours ouvrés dans la période: " . count($nombreJours) . "');</script>";
+
+            if (empty($nombreJours)) {
+                return ['error' => 'Aucun jour ouvré trouvé dans cette période.'];
+            }
+
+        } catch (\Exception $e) {
+            echo "<script>console.log('[ChargeModel] Erreur parsing dates: " . addslashes($e->getMessage()) . "');</script>";
+            return ['error' => 'Format de date invalide: ' . $e->getMessage()];
+        }
+
+        // Récupérer toutes les données depuis ImportModel
+        $donneesDb = $this->importModel->getAllData();
+
+        if (empty($donneesDb)) {
+            return ['error' => 'Aucune donnée disponible dans la base de données.'];
+        }
+
+        // Filtrer les données pour cette période uniquement (en excluant les weekends)
+        $donneesPeriode = [];
+        foreach ($donneesDb as $donnee) {
+            try {
+                $dateDonnee = new \DateTime($donnee['Date']);
+
+                // Vérifier si la date est dans la période ET que c'est un jour ouvré
+                if ($dateDonnee >= $debutPeriode && $dateDonnee <= $finPeriode && $this->isWorkingDay($dateDonnee)) {
+                    $donneesPeriode[] = $donnee;
+                }
+            } catch (\Exception $e) {
+                echo "<script>console.log('[ChargeModel] Erreur parsing date donnée: " . addslashes($e->getMessage()) . "');</script>";
+                continue;
+            }
+        }
+
+        echo "<script>console.log('[ChargeModel] Données trouvées pour cette période: " . count($donneesPeriode) . "');</script>";
+
+        // Convertir en format graphique par jour
+        $graphiquesData = $this->preparePeriodGraphicsData($donneesPeriode, $debutPeriode, $finPeriode);
+
+        return [
+            'graphiquesData' => $graphiquesData,
+            'debutPeriode' => $debutPeriode,
+            'finPeriode' => $finPeriode,
+            'donneesCount' => count($donneesPeriode),
+            'nombreJoursOuvres' => count($nombreJours)
+        ];
+    }
+
+    /**
+     * 🆕 NOUVELLE MÉTHODE : Prépare les données graphiques pour une période libre
+     *
+     * @param array $donneesPeriode Données de la période
+     * @param \DateTime $debutPeriode Date de début
+     * @param \DateTime $finPeriode Date de fin
+     * @return array Données formatées pour JPGraph
+     */
+    private function preparePeriodGraphicsData($donneesPeriode, $debutPeriode, $finPeriode) {
+        echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES PÉRIODE LIBRE ===');</script>";
+
+        // Mapping des processus vers les catégories
+        $mappingProcessus = [
+            'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
+            'etude' => ['CALC', 'PROJ'],
+            'methode' => ['METH'],
+            'qualite' => ['QUAL', 'QUALS']
+        ];
+
+        // Créer la liste de TOUS les jours ouvrés de la période (même sans données)
+        $joursOuvres = $this->calculateWorkingDaysBetween($debutPeriode, $finPeriode);
+        $nombreJours = count($joursOuvres);
+
+        echo "<script>console.log('[ChargeModel] Jours ouvrés à traiter: " . $nombreJours . "');</script>";
+
+        // Créer les labels adaptatifs selon la durée de la période
+        $joursLabels = $this->generateAdaptiveLabels($joursOuvres);
+
+        echo "<script>console.log('[ChargeModel] Labels générés: " . count($joursLabels) . "');</script>";
+
+        // Initialiser les données par catégorie et par processus (tous les jours ouvrés)
+        $donnees = [
+            'production' => [
+                'CHAUDNQ' => array_fill(0, $nombreJours, 0),
+                'SOUDNQ' => array_fill(0, $nombreJours, 0),
+                'CT' => array_fill(0, $nombreJours, 0)
+            ],
+            'etude' => [
+                'CALC' => array_fill(0, $nombreJours, 0),
+                'PROJ' => array_fill(0, $nombreJours, 0)
+            ],
+            'methode' => [
+                'METH' => array_fill(0, $nombreJours, 0)
+            ],
+            'qualite' => [
+                'QUAL' => array_fill(0, $nombreJours, 0),
+                'QUALS' => array_fill(0, $nombreJours, 0)
+            ]
+        ];
+
+        // Créer un mapping date → index pour un accès rapide
+        $dateToIndexMap = [];
+        foreach ($joursOuvres as $index => $jourObj) {
+            $dateToIndexMap[$jourObj->format('Y-m-d')] = $index;
+        }
+
+        // Remplir les données jour par jour
+        foreach ($donneesPeriode as $donnee) {
+            $dateData = $donnee['Date'];
+            $processus = $donnee['Processus'];
+            $charge = floatval($donnee['Charge']);
+
+            // Trouver l'index du jour
+            if (!isset($dateToIndexMap[$dateData])) {
+                echo "<script>console.log('[ChargeModel] Date non trouvée dans la période ou weekend: " . addslashes($dateData) . "');</script>";
+                continue;
+            }
+
+            $indexJour = $dateToIndexMap[$dateData];
+
+            // Trouver la catégorie du processus
+            $categorieProcessus = null;
+            foreach ($mappingProcessus as $categorie => $processusListe) {
+                if (in_array($processus, $processusListe)) {
+                    $categorieProcessus = $categorie;
+                    break;
+                }
+            }
+
+            if ($categorieProcessus && isset($donnees[$categorieProcessus][$processus])) {
+                $donnees[$categorieProcessus][$processus][$indexJour] += $charge;
+                echo "<script>console.log('[ChargeModel] Ajout: " . addslashes($processus) . " (" . addslashes($categorieProcessus) . ") jour " . $indexJour . " = +" . $charge . "');</script>";
+            } else {
+                echo "<script>console.log('[ChargeModel] Processus ignoré: " . addslashes($processus) . " (catégorie non trouvée)');</script>";
+            }
+        }
+
+        // Ajouter les labels et métadonnées aux données
+        $graphiquesData = array_merge($donnees, [
+            'jours_labels' => $joursLabels,
+            'periode_info' => [
+                'debut' => $debutPeriode->format('d/m/Y'),
+                'fin' => $finPeriode->format('d/m/Y'),
+                'nombre_jours' => $nombreJours,
+                'largeur_graphique' => max(900, $nombreJours * 60) // Largeur dynamique
+            ]
+        ]);
+
+        // Log des totaux par catégorie
+        foreach ($mappingProcessus as $categorie => $processusListe) {
+            $totalCategorie = 0;
+            foreach ($processusListe as $proc) {
+                if (isset($donnees[$categorie][$proc])) {
+                    $totalProc = array_sum($donnees[$categorie][$proc]);
+                    $totalCategorie += $totalProc;
+                    if ($totalProc > 0) {
+                        echo "<script>console.log('[ChargeModel] Total " . addslashes($proc) . ": " . $totalProc . "');</script>";
+                    }
+                }
+            }
+            echo "<script>console.log('[ChargeModel] Total catégorie " . addslashes($categorie) . ": " . $totalCategorie . "');</script>";
+        }
+
+        echo "<script>console.log('[ChargeModel] Données graphiques période libre préparées');</script>";
+
+        return $graphiquesData;
+    }
+
+    /**
+     * 🆕 Calcule tous les jours ouvrés entre deux dates (exclut weekends)
+     *
+     * @param \DateTime $dateDebut Date de début
+     * @param \DateTime $dateFin Date de fin
+     * @return array Liste des objets DateTime des jours ouvrés
+     */
+    private function calculateWorkingDaysBetween($dateDebut, $dateFin) {
+        $joursOuvres = [];
+        $current = clone $dateDebut;
+
+        while ($current <= $dateFin) {
+            // Inclure seulement les jours ouvrés (Lundi=1 à Vendredi=5)
+            if ($this->isWorkingDay($current)) {
+                $joursOuvres[] = clone $current;
+            }
+            $current->add(new \DateInterval('P1D'));
+        }
+
+        return $joursOuvres;
+    }
+
+    /**
+     * 🆕 Vérifie si un jour est un jour ouvré (exclut samedi et dimanche)
+     *
+     * @param \DateTime $date Date à vérifier
+     * @return bool True si jour ouvré, false si weekend
+     */
+    private function isWorkingDay($date) {
+        $dayOfWeek = (int)$date->format('N'); // 1=Lundi, 7=Dimanche
+        return $dayOfWeek >= 1 && $dayOfWeek <= 5; // Lundi à Vendredi
+    }
+
+    /**
+     * 🆕 Génère des labels adaptatifs selon la durée de la période
+     *
+     * @param array $joursOuvres Liste des jours ouvrés
+     * @return array Labels formatés pour l'affichage
+     */
+    private function generateAdaptiveLabels($joursOuvres) {
+        $nombreJours = count($joursOuvres);
+        $labels = [];
+
+        if ($nombreJours <= 14) {
+            // <= 14 jours : afficher tous les jours (format court)
+            foreach ($joursOuvres as $jour) {
+                $labels[] = $jour->format('d/m'); // Ex: "03/12"
+            }
+        } elseif ($nombreJours <= 30) {
+            // 15-30 jours : afficher 1 jour sur 2
+            foreach ($joursOuvres as $index => $jour) {
+                if ($index % 2 === 0) {
+                    $labels[] = $jour->format('d/m');
+                } else {
+                    $labels[] = ''; // Label vide pour espacement
+                }
+            }
+        } else {
+            // > 30 jours : afficher 1 jour sur 5 (environ toutes les semaines)
+            foreach ($joursOuvres as $index => $jour) {
+                if ($index % 5 === 0) {
+                    $labels[] = $jour->format('d/m');
+                } else {
+                    $labels[] = ''; // Label vide pour espacement
+                }
+            }
+        }
+
+        echo "<script>console.log('[ChargeModel] Stratégie labels pour " . $nombreJours . " jours: " . ($nombreJours <= 14 ? 'tous' : ($nombreJours <= 30 ? '1/2' : '1/5')) . "');</script>";
+
+        return $labels;
+    }
+
+    /**
+     * 🆕 Obtient la plage de dates disponibles dans les données
+     * Utile pour définir min/max des inputs date de l'interface
+     *
+     * @return array Informations sur la plage de dates disponibles
+     */
+    public function getAvailableDateRange() {
+        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION PLAGE DATES DISPONIBLES ===');</script>";
+
+        // Récupérer toutes les données depuis ImportModel
+        $donneesDb = $this->importModel->getAllData();
+
+        if (empty($donneesDb)) {
+            echo "<script>console.log('[ChargeModel] Aucune donnée disponible');</script>";
+            return [
+                'has_data' => false,
+                'message' => 'Aucune donnée disponible'
+            ];
+        }
+
+        // Extraire toutes les dates
+        $dates = array_column($donneesDb, 'Date');
+        sort($dates);
+
+        $dateMin = new \DateTime(reset($dates));
+        $dateMax = new \DateTime(end($dates));
+
+        echo "<script>console.log('[ChargeModel] Plage disponible: " . addslashes($dateMin->format('Y-m-d')) . " → " . addslashes($dateMax->format('Y-m-d')) . "');</script>";
+
+        return [
+            'has_data' => true,
+            'date_min' => $dateMin->format('Y-m-d'),
+            'date_max' => $dateMax->format('Y-m-d'),
+            'date_min_formatted' => $dateMin->format('d/m/Y'),
+            'date_max_formatted' => $dateMax->format('d/m/Y'),
+            'total_entries' => count($donneesDb)
+        ];
+    }
+
+    // ========================================
+    // MÉTHODES CONSERVÉES POUR COMPATIBILITÉ
+    // ========================================
 
     /**
      * Filtre les données pour ne garder que les jours présents et futurs
@@ -270,304 +579,11 @@ class ChargeModel {
             }
         }
 
-        // NOUVEAU : Préparer les données pour les graphiques
-        $graphiquesData = $this->prepareGraphicsData($resultatAnalyse['chargeParSemaine']);
-
         return [
             'donneesMensuelles' => $donneesMensuellesFormat,
             'chargeParSemaine' => $chargeParSemaineFormatee,
             'dateDebut' => $resultatAnalyse['dateDebut']->format('d/m/Y'),
-            'dateFin' => $resultatAnalyse['dateFin']->format('d/m/Y'),
-            'graphiquesData' => $graphiquesData // AJOUT
+            'dateFin' => $resultatAnalyse['dateFin']->format('d/m/Y')
         ];
     }
-
-    /**
-     * Prépare les données pour les graphiques JPGraph
-     *
-     * @param array $chargeParSemaine Données de charge par semaine
-     * @return array Données formatées pour JPGraph
-     */
-    private function prepareGraphicsData($chargeParSemaine) {
-        // Mapping des processus vers les catégories (MISE À JOUR avec Qualité)
-        $mappingProcessus = [
-            'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
-            'etude' => ['CALC', 'PROJ'],
-            'methode' => ['METH'],
-            'qualite' => ['QUAL', 'QUALS']  // 🆕 NOUVEAU
-        ];
-
-        // Labels des semaines et initialisation des données
-        $semainesLabels = [];
-        $donnees = [
-            'production' => ['CHAUDNQ' => [], 'SOUDNQ' => [], 'CT' => []],
-            'etude' => ['CALC' => [], 'PROJ' => []],
-            'methode' => ['METH' => []],
-            'qualite' => ['QUAL' => [], 'QUALS' => []]  // 🆕 NOUVEAU
-        ];
-
-        // Debug
-        echo "<script>console.log('[ChargeModel] Préparation données graphiques...');</script>";
-        echo "<script>console.log('[ChargeModel] Nombre de semaines: " . count($chargeParSemaine) . "');</script>";
-
-        // Parcourir chaque semaine
-        foreach ($chargeParSemaine as $semaine) {
-            // Créer le label de la semaine
-            $label = $semaine['debut']->format('d/m') . ' - ' . $semaine['fin']->format('d/m');
-            $semainesLabels[] = $label;
-
-            echo "<script>console.log('[ChargeModel] Semaine: " . $label . "');</script>";
-
-            // Initialiser les valeurs à 0 pour cette semaine
-            foreach ($mappingProcessus as $categorie => $processus) {
-                foreach ($processus as $proc) {
-                    $charge = $semaine['processus'][$proc] ?? 0;
-                    $donnees[$categorie][$proc][] = $charge;
-
-                    if ($charge > 0) {
-                        echo "<script>console.log('[ChargeModel] " . $proc . " (" . $categorie . "): " . $charge . "');</script>";
-                    }
-                }
-            }
-        }
-
-        $graphiquesData = array_merge($donnees, ['semaines_labels' => $semainesLabels]);
-
-        echo "<script>console.log('[ChargeModel] Données graphiques préparées');</script>";
-        echo "<script>console.log('[ChargeModel] Labels: " . json_encode($semainesLabels) . "');</script>";
-
-        return $graphiquesData;
-    }
-
-    /**
-     * 🆕 Récupère la liste des semaines disponibles (présentes et futures uniquement)
-     *
-     * @return array Liste des semaines avec leurs informations
-     */
-    public function getAvailableWeeks() {
-        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION SEMAINES DISPONIBLES ===');</script>";
-
-        // Récupérer toutes les données depuis ImportModel
-        $donneesDb = $this->importModel->getAllData();
-
-        if (empty($donneesDb)) {
-            echo "<script>console.log('[ChargeModel] Aucune donnée disponible');</script>";
-            return [];
-        }
-
-        // Filtrer pour ne garder que les données présentes et futures
-        $donneesFiltrees = $this->filterFutureAndTodayData($donneesDb);
-
-        if (empty($donneesFiltrees)) {
-            echo "<script>console.log('[ChargeModel] Aucune donnée présente/future');</script>";
-            return [];
-        }
-
-        // Grouper par semaines
-        $semaines = [];
-        foreach ($donneesFiltrees as $donnee) {
-            $date = new \DateTime($donnee['Date']);
-
-            // Calculer le début de la semaine (lundi)
-            $debutSemaine = clone $date;
-            $jourSemaine = $date->format('N'); // 1 = lundi, 7 = dimanche
-            $debutSemaine->sub(new \DateInterval('P' . ($jourSemaine - 1) . 'D'));
-
-            // Calculer la fin de la semaine (dimanche)
-            $finSemaine = clone $debutSemaine;
-            $finSemaine->add(new \DateInterval('P6D'));
-
-            // Créer l'identifiant unique de la semaine
-            $weekId = $debutSemaine->format('Y-m-d');
-
-            if (!isset($semaines[$weekId])) {
-                $semaines[$weekId] = [
-                    'value' => $weekId,
-                    'debut' => $debutSemaine->format('d/m/Y'),
-                    'fin' => $finSemaine->format('d/m/Y'),
-                    'label' => 'Semaine du ' . $debutSemaine->format('d/m') . ' au ' . $finSemaine->format('d/m/Y'),
-                    'debut_obj' => clone $debutSemaine,
-                    'fin_obj' => clone $finSemaine
-                ];
-            }
-        }
-
-        // Trier par date de début (plus récente en premier)
-        uasort($semaines, function($a, $b) {
-            return $a['debut_obj'] <=> $b['debut_obj'];
-        });
-
-        // Supprimer les objets DateTime pour l'affichage
-        $semainesFormatees = [];
-        foreach ($semaines as $semaine) {
-            unset($semaine['debut_obj'], $semaine['fin_obj']);
-            $semainesFormatees[] = $semaine;
-        }
-
-        echo "<script>console.log('[ChargeModel] Semaines trouvées: " . count($semainesFormatees) . "');</script>";
-        foreach ($semainesFormatees as $semaine) {
-            echo "<script>console.log('[ChargeModel] - " . addslashes($semaine['label']) . " (ID: " . addslashes($semaine['value']) . ")');</script>";
-        }
-
-        return $semainesFormatees;
-    }
-
-    /**
-     * 🆕 Récupère les données quotidiennes pour une semaine spécifique
-     *
-     * @param string $weekStartDate Date de début de la semaine (format Y-m-d)
-     * @return array Données formatées pour cette semaine
-     */
-    public function getDailyDataForWeek($weekStartDate) {
-        echo "<script>console.log('[ChargeModel] === RÉCUPÉRATION DONNÉES POUR SEMAINE: " . addslashes($weekStartDate) . " ===');</script>";
-
-        try {
-            $debutSemaine = new \DateTime($weekStartDate);
-            $finSemaine = clone $debutSemaine;
-            $finSemaine->add(new \DateInterval('P6D')); // +6 jours = dimanche
-
-            echo "<script>console.log('[ChargeModel] Période: " . addslashes($debutSemaine->format('Y-m-d')) . " au " . addslashes($finSemaine->format('Y-m-d')) . "');</script>";
-
-        } catch (\Exception $e) {
-            echo "<script>console.log('[ChargeModel] Erreur parsing date: " . addslashes($e->getMessage()) . "');</script>";
-            return ['error' => 'Date de semaine invalide: ' . $weekStartDate];
-        }
-
-        // Récupérer toutes les données depuis ImportModel
-        $donneesDb = $this->importModel->getAllData();
-
-        if (empty($donneesDb)) {
-            return ['error' => 'Aucune donnée disponible dans la base de données.'];
-        }
-
-        // Filtrer les données pour cette semaine uniquement
-        $donneesSemine = [];
-        foreach ($donneesDb as $donnee) {
-            try {
-                $dateDonnee = new \DateTime($donnee['Date']);
-
-                // Vérifier si la date est dans la semaine
-                if ($dateDonnee >= $debutSemaine && $dateDonnee <= $finSemaine) {
-                    $donneesSemine[] = $donnee;
-                }
-            } catch (\Exception $e) {
-                echo "<script>console.log('[ChargeModel] Erreur parsing date donnée: " . addslashes($e->getMessage()) . "');</script>";
-                continue;
-            }
-        }
-
-        echo "<script>console.log('[ChargeModel] Données trouvées pour cette semaine: " . count($donneesSemine) . "');</script>";
-
-        if (empty($donneesSemine)) {
-            return ['error' => 'Aucune donnée trouvée pour cette semaine.'];
-        }
-
-        // Convertir en format graphique par jour
-        $graphiquesData = $this->prepareWeeklyGraphicsData($donneesSemine, $debutSemaine, $finSemaine);
-
-        return [
-            'graphiquesData' => $graphiquesData,
-            'debutSemaine' => $debutSemaine,
-            'finSemaine' => $finSemaine,
-            'donneesCount' => count($donneesSemine)
-        ];
-    }
-
-    /**
-     * 🆕 Prépare les données graphiques pour une semaine (7 jours)
-     *
-     * @param array $donneesSemine Données de la semaine
-     * @param \DateTime $debutSemaine Date de début
-     * @param \DateTime $finSemaine Date de fin
-     * @return array Données formatées pour JPGraph
-     */
-    private function prepareWeeklyGraphicsData($donneesSemine, $debutSemaine, $finSemaine) {
-        echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES HEBDOMADAIRES ===');</script>";
-
-        // Mapping des processus vers les catégories
-        $mappingProcessus = [
-            'production' => ['CHAUDNQ', 'SOUDNQ', 'CT'],
-            'etude' => ['CALC', 'PROJ'],
-            'methode' => ['METH'],
-            'qualite' => ['QUAL', 'QUALS']
-        ];
-
-        // Créer les labels des 7 jours de la semaine
-        $joursLabels = [];
-        $joursDate = [];
-        $current = clone $debutSemaine;
-
-        $nomsJours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-
-        for ($i = 0; $i < 7; $i++) {
-            $jourLabel = $nomsJours[$i] . ' ' . $current->format('d/m');
-            $joursLabels[] = $jourLabel;
-            $joursDate[] = $current->format('Y-m-d');
-            $current->add(new \DateInterval('P1D'));
-        }
-
-        echo "<script>console.log('[ChargeModel] Labels jours: " . addslashes(json_encode($joursLabels)) . "');</script>";
-
-        // Initialiser les données par catégorie et par processus (7 jours)
-        $donnees = [
-            'production' => ['CHAUDNQ' => array_fill(0, 7, 0), 'SOUDNQ' => array_fill(0, 7, 0), 'CT' => array_fill(0, 7, 0)],
-            'etude' => ['CALC' => array_fill(0, 7, 0), 'PROJ' => array_fill(0, 7, 0)],
-            'methode' => ['METH' => array_fill(0, 7, 0)],
-            'qualite' => ['QUAL' => array_fill(0, 7, 0), 'QUALS' => array_fill(0, 7, 0)]
-        ];
-
-        // Remplir les données jour par jour
-        foreach ($donneesSemine as $donnee) {
-            $dateData = $donnee['Date'];
-            $processus = $donnee['Processus'];
-            $charge = floatval($donnee['Charge']);
-
-            // Trouver l'index du jour (0-6)
-            $indexJour = array_search($dateData, $joursDate);
-
-            if ($indexJour === false) {
-                echo "<script>console.log('[ChargeModel] Date non trouvée dans la semaine: " . addslashes($dateData) . "');</script>";
-                continue;
-            }
-
-            // Trouver la catégorie du processus
-            $categorieProcessus = null;
-            foreach ($mappingProcessus as $categorie => $processusListe) {
-                if (in_array($processus, $processusListe)) {
-                    $categorieProcessus = $categorie;
-                    break;
-                }
-            }
-
-            if ($categorieProcessus && isset($donnees[$categorieProcessus][$processus])) {
-                $donnees[$categorieProcessus][$processus][$indexJour] += $charge;
-                echo "<script>console.log('[ChargeModel] Ajout: " . addslashes($processus) . " (" . addslashes($categorieProcessus) . ") jour " . $indexJour . " = +" . $charge . "');</script>";
-            } else {
-                echo "<script>console.log('[ChargeModel] Processus ignoré: " . addslashes($processus) . " (catégorie non trouvée)');</script>";
-            }
-        }
-
-        // Ajouter les labels aux données
-        $graphiquesData = array_merge($donnees, ['jours_labels' => $joursLabels]);
-
-        // Log des totaux par catégorie
-        foreach ($mappingProcessus as $categorie => $processusListe) {
-            $totalCategorie = 0;
-            foreach ($processusListe as $proc) {
-                if (isset($donnees[$categorie][$proc])) {
-                    $totalProc = array_sum($donnees[$categorie][$proc]);
-                    $totalCategorie += $totalProc;
-                    if ($totalProc > 0) {
-                        echo "<script>console.log('[ChargeModel] Total " . addslashes($proc) . ": " . $totalProc . "');</script>";
-                    }
-                }
-            }
-            echo "<script>console.log('[ChargeModel] Total catégorie " . addslashes($categorie) . ": " . $totalCategorie . "');</script>";
-        }
-
-        echo "<script>console.log('[ChargeModel] Données graphiques hebdomadaires préparées');</script>";
-
-        return $graphiquesData;
-    }
-
 }

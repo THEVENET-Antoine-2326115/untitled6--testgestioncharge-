@@ -546,4 +546,133 @@ class LectureDossierModel {
         $this->console_log("Total fichiers XLSX: " . count($xlsxFiles));
         return $xlsxFiles;
     }
+
+    /**
+     * 🆕 Retourne la liste détaillée des fichiers XLSX avec numéro d'affaire et nom extrait
+     *
+     * @return array Liste des fichiers XLSX avec détails (numéro d'affaire, nom propre, etc.)
+     */
+    public function getXlsxFilesDetailed() {
+        $this->console_log("=== getXlsxFilesDetailed() ===");
+
+        $xlsxFilesDetailed = [];
+
+        if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
+            $this->console_log("Dossier destination introuvable: " . self::XLSX_OUTPUT_FOLDER);
+            return $xlsxFilesDetailed;
+        }
+
+        $files = scandir(self::XLSX_OUTPUT_FOLDER);
+        $this->console_log("Fichiers scannés: " . count($files));
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+
+            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
+                $this->console_log("Fichier XLSX trouvé: " . $file);
+
+                // Extraire le numéro d'affaire et le nom propre
+                $fileDetails = $this->extractFileDetails($file);
+
+                $fileSize = filesize($filePath);
+                $fileModified = filemtime($filePath);
+
+                $xlsxFilesDetailed[] = [
+                    'name' => $file,
+                    'path' => $filePath,
+                    'size' => $fileSize,
+                    'size_formatted' => $this->formatFileSize($fileSize),
+                    'modified' => $fileModified,
+                    'modified_formatted' => date('d/m/Y H:i', $fileModified),
+                    'numero_affaire' => $fileDetails['numero_affaire'],
+                    'nom_propre' => $fileDetails['nom_propre'],
+                    'has_numero' => $fileDetails['has_numero']
+                ];
+            }
+        }
+
+        $this->console_log("Total fichiers XLSX détaillés: " . count($xlsxFilesDetailed));
+        return $xlsxFilesDetailed;
+    }
+
+    /**
+     * 🆕 Extrait le numéro d'affaire et le nom propre d'un nom de fichier
+     *
+     * @param string $filename Nom du fichier (ex: "AFF24-09_0009 planning en cours.xlsx")
+     * @return array Détails extraits
+     */
+    private function extractFileDetails($filename) {
+        $this->console_log("=== extractFileDetails pour: " . $filename . " ===");
+
+        // Supprimer l'extension
+        $nameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
+
+        // Regex pour trouver le pattern XX-XX_XXXX (numéro d'affaire)
+        $pattern = '/(\d{2}-\d{2}_\d{4})/';
+
+        $details = [
+            'numero_affaire' => null,
+            'nom_propre' => $nameWithoutExt,
+            'has_numero' => false
+        ];
+
+        if (preg_match($pattern, $nameWithoutExt, $matches)) {
+            $numeroAffaire = $matches[1];
+            $details['numero_affaire'] = $numeroAffaire;
+            $details['has_numero'] = true;
+
+            // Extraire le nom propre en supprimant le préfixe et le numéro d'affaire
+            $nomPropre = $nameWithoutExt;
+
+            // Supprimer le préfixe "AFF" s'il existe
+            $nomPropre = preg_replace('/^AFF/', '', $nomPropre);
+
+            // Supprimer le numéro d'affaire
+            $nomPropre = str_replace($numeroAffaire, '', $nomPropre);
+
+            // Nettoyer les espaces multiples et trim
+            $nomPropre = trim(preg_replace('/\s+/', ' ', $nomPropre));
+
+            // Si le nom propre est vide après nettoyage, utiliser un nom par défaut
+            if (empty($nomPropre)) {
+                $nomPropre = "planning";
+            }
+
+            $details['nom_propre'] = $nomPropre;
+
+            $this->console_log("Numéro d'affaire trouvé: " . $numeroAffaire);
+            $this->console_log("Nom propre extrait: " . $nomPropre);
+        } else {
+            $this->console_log("Aucun numéro d'affaire trouvé dans: " . $filename);
+            // Le nom propre reste le nom complet du fichier sans extension
+        }
+
+        return $details;
+    }
+
+    /**
+     *  Formate la taille d'un fichier en octets de manière lisible
+     *
+     * @param int $bytes Taille en octets
+     * @return string Taille formatée (ex: "1.2 MB")
+     */
+    private function formatFileSize($bytes) {
+        if ($bytes === 0) {
+            return '0 B';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $power = 0;
+
+        while ($bytes >= 1024 && $power < count($units) - 1) {
+            $bytes /= 1024;
+            $power++;
+        }
+
+        return round($bytes, 1) . ' ' . $units[$power];
+    }
 }

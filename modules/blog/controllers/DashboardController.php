@@ -477,6 +477,7 @@ class DashboardController {
         // Informations sur les fichiers
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
+        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed(); // 🆕 NOUVEAU
 
         // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
         $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
@@ -485,14 +486,16 @@ class DashboardController {
             'summary' => $dataSummary,
             'files_info' => [
                 'mpp_count' => count($mppFiles),
-                'xlsx_count' => count($xlsxFiles)
+                'xlsx_count' => count($xlsxFiles),
+                'xlsx_files_detailed' => $xlsxFilesDetailed // 🆕 NOUVEAU
             ],
             'display_data' => $displayData,
             'display_title' => $displayTitle,
-            'processus_suggestions' => $processusSuggestions // 🆕 NOUVEAU
+            'processus_suggestions' => $processusSuggestions
         ];
     }
 
+// 🆕 Même modification dans prepareAllDataForDisplay() :
     /**
      * Prépare toutes les données pour l'affichage complet
      *
@@ -515,6 +518,7 @@ class DashboardController {
         // Informations sur les fichiers
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
+        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed(); // 🆕 NOUVEAU
 
         // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
         $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
@@ -523,11 +527,12 @@ class DashboardController {
             'summary' => $dataSummary,
             'files_info' => [
                 'mpp_count' => count($mppFiles),
-                'xlsx_count' => count($xlsxFiles)
+                'xlsx_count' => count($xlsxFiles),
+                'xlsx_files_detailed' => $xlsxFilesDetailed // 🆕 NOUVEAU
             ],
             'display_data' => $displayData,
             'display_title' => "Toutes les données (" . count($allData) . " entrées)",
-            'processus_suggestions' => $processusSuggestions // 🆕 NOUVEAU
+            'processus_suggestions' => $processusSuggestions
         ];
     }
 }

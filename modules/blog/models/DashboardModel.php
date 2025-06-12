@@ -299,4 +299,13 @@ class DashboardModel {
     public function getXlsxFilesList() {
         return $this->lectureDossierModel->getXlsxFiles();
     }
+
+    /**
+     * 🆕 Obtenir la liste détaillée des fichiers XLSX convertis (avec numéros d'affaire)
+     *
+     * @return array Liste détaillée des fichiers XLSX
+     */
+    public function getXlsxFilesDetailed() {
+        return $this->lectureDossierModel->getXlsxFilesDetailed();
+    }
 }

@@ -9,7 +9,9 @@ use Amenadiel\JpGraph\Plot\BarPlot;
  * Classe GraphGeneratorModel
  *
  * Cette classe gère la génération des graphiques JPGraph pour l'analyse de charge.
- * Version adaptée pour génération par jour d'une semaine sélectionnée.
+ *
+ * VERSION REFACTORISÉE : Génération pour période libre (largeur dynamique)
+ * Suppression de la logique de semaines fixes (7 jours)
  */
 class GraphGeneratorModel {
 
@@ -19,14 +21,29 @@ class GraphGeneratorModel {
     const CHARTS_FOLDER = '_assets/images/';
 
     /**
-     * Largeur des graphiques
+     * Largeur de base des graphiques (sera ajustée dynamiquement)
      */
-    const CHART_WIDTH = 900;
+    const CHART_BASE_WIDTH = 900;
 
     /**
-     * Hauteur des graphiques
+     * Largeur minimale des graphiques
+     */
+    const CHART_MIN_WIDTH = 600;
+
+    /**
+     * Largeur maximale des graphiques (pour éviter des fichiers trop volumineux)
+     */
+    const CHART_MAX_WIDTH = 5000;
+
+    /**
+     * Hauteur des graphiques (reste fixe)
      */
     const CHART_HEIGHT = 450;
+
+    /**
+     * Largeur par jour (pour calcul dynamique)
+     */
+    const WIDTH_PER_DAY = 60;
 
     /**
      * JPGraph chargé ou non
@@ -65,13 +82,13 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère les graphiques pour une semaine spécifique (par jour)
+     * 🆕 Génère les graphiques pour une période libre (nombre de jours variable)
      *
-     * @param array $weekData Données formatées pour une semaine (7 jours)
+     * @param array $periodData Données formatées pour la période sélectionnée
      * @return array Chemins des images générées pour chaque catégorie
      */
-    public function generateWeeklyCharts($weekData) {
-        $this->console_log("=== GÉNÉRATION GRAPHIQUES HEBDOMADAIRES ===");
+    public function generatePeriodCharts($periodData) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUES PÉRIODE LIBRE ===");
         $this->console_log("JPGraph chargé: " . ($this->jpgraphLoaded ? 'OUI' : 'NON'));
 
         if (!$this->jpgraphLoaded) {
@@ -82,7 +99,24 @@ class GraphGeneratorModel {
         // 🆕 NETTOYAGE COMPLET avant génération
         $this->cleanupAllCharts();
 
-        $this->console_log("Données reçues pour la semaine: " . json_encode(array_keys($weekData)));
+        $this->console_log("Données reçues pour la période: " . json_encode(array_keys($periodData)));
+
+        // Vérifier la présence des métadonnées de période
+        if (!isset($periodData['periode_info'])) {
+            $this->console_log("ERREUR: Métadonnées periode_info manquantes");
+            return $this->generateErrorImages("Métadonnées de période manquantes");
+        }
+
+        $periodeInfo = $periodData['periode_info'];
+        $this->console_log("Période: " . $periodeInfo['debut'] . " → " . $periodeInfo['fin'] . " (" . $periodeInfo['nombre_jours'] . " jours)");
+
+        // Vérifier la présence des labels
+        if (!isset($periodData['jours_labels'])) {
+            $this->console_log("ERREUR: Labels jours_labels manquants");
+            return $this->generateErrorImages("Labels de jours manquants");
+        }
+
+        $this->console_log("Labels disponibles: " . count($periodData['jours_labels']));
 
         $chartPaths = [
             'production' => null,
@@ -92,48 +126,43 @@ class GraphGeneratorModel {
         ];
 
         try {
-            // Debug: vérifier les données reçues
-            if (isset($weekData['jours_labels'])) {
-                $this->console_log("Jours disponibles: " . count($weekData['jours_labels']));
-                $this->console_log("Labels jours: " . json_encode($weekData['jours_labels']));
-            } else {
-                $this->console_log("ERREUR: Pas de jours_labels dans les données");
-                return $this->generateErrorImages("Données jours_labels manquantes");
-            }
+            // Calculer la largeur dynamique du graphique
+            $chartWidth = $this->calculateChartWidth($periodeInfo['nombre_jours']);
+            $this->console_log("Largeur calculée pour " . $periodeInfo['nombre_jours'] . " jours: " . $chartWidth . "px");
 
             // Vérifier chaque catégorie avant génération
             $categories = ['production', 'etude', 'methode', 'qualite'];
             foreach ($categories as $cat) {
-                if (isset($weekData[$cat])) {
+                if (isset($periodData[$cat])) {
                     $totalData = 0;
-                    foreach ($weekData[$cat] as $proc => $data) {
+                    foreach ($periodData[$cat] as $proc => $data) {
                         $sum = array_sum($data);
                         $totalData += $sum;
                         if ($sum > 0) {
-                            $this->console_log($cat . " - " . $proc . ": " . $sum . " total semaine");
+                            $this->console_log($cat . " - " . $proc . ": " . $sum . " total période");
                         }
                     }
-                    $this->console_log("Total données " . $cat . " pour la semaine: " . $totalData);
+                    $this->console_log("Total données " . $cat . " pour la période: " . $totalData);
 
                     if ($totalData > 0) {
-                        $this->console_log("Génération graphique " . $cat . " pour la semaine");
+                        $this->console_log("Génération graphique " . $cat . " pour la période");
                         switch ($cat) {
                             case 'production':
-                                $chartPaths['production'] = $this->generateWeeklyProductionChart($weekData);
+                                $chartPaths['production'] = $this->generatePeriodProductionChart($periodData, $chartWidth);
                                 break;
                             case 'etude':
-                                $chartPaths['etude'] = $this->generateWeeklyEtudeChart($weekData);
+                                $chartPaths['etude'] = $this->generatePeriodEtudeChart($periodData, $chartWidth);
                                 break;
                             case 'methode':
-                                $chartPaths['methode'] = $this->generateWeeklyMethodeChart($weekData);
+                                $chartPaths['methode'] = $this->generatePeriodMethodeChart($periodData, $chartWidth);
                                 break;
                             case 'qualite':
-                                $chartPaths['qualite'] = $this->generateWeeklyQualiteChart($weekData);
+                                $chartPaths['qualite'] = $this->generatePeriodQualiteChart($periodData, $chartWidth);
                                 break;
                         }
                     } else {
-                        $this->console_log("Aucune donnée pour " . $cat . " cette semaine, graphique non généré");
-                        $chartPaths[$cat] = $this->createErrorImage($cat, 'Aucune donnée disponible pour cette semaine');
+                        $this->console_log("Aucune donnée pour " . $cat . " cette période, graphique non généré");
+                        $chartPaths[$cat] = $this->createErrorImage($cat, 'Aucune donnée disponible pour cette période');
                     }
                 } else {
                     $this->console_log("Catégorie " . $cat . " manquante dans les données");
@@ -141,10 +170,10 @@ class GraphGeneratorModel {
                 }
             }
 
-            $this->console_log("Génération hebdomadaire terminée");
+            $this->console_log("Génération période libre terminée");
 
         } catch (\Exception $e) {
-            $this->console_log("Erreur génération graphiques hebdomadaires: " . $e->getMessage());
+            $this->console_log("Erreur génération graphiques période libre: " . $e->getMessage());
             $chartPaths = $this->generateErrorImages($e->getMessage());
         }
 
@@ -152,30 +181,49 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère le graphique Production pour une semaine (par jour)
+     * 🆕 Calcule la largeur optimale du graphique selon le nombre de jours
      *
-     * @param array $data Données des graphiques hebdomadaires
+     * @param int $nombreJours Nombre de jours dans la période
+     * @return int Largeur en pixels
+     */
+    private function calculateChartWidth($nombreJours) {
+        // Largeur de base + largeur par jour
+        $calculatedWidth = self::CHART_BASE_WIDTH + ($nombreJours * self::WIDTH_PER_DAY);
+
+        // Appliquer les limites min/max
+        $finalWidth = max(self::CHART_MIN_WIDTH, min(self::CHART_MAX_WIDTH, $calculatedWidth));
+
+        $this->console_log("Calcul largeur: base(" . self::CHART_BASE_WIDTH . ") + jours(" . $nombreJours . ") * largeur_par_jour(" . self::WIDTH_PER_DAY . ") = " . $calculatedWidth . "px → " . $finalWidth . "px (avec limites)");
+
+        return $finalWidth;
+    }
+
+    /**
+     * 🆕 Génère le graphique Production pour une période libre
+     *
+     * @param array $data Données des graphiques de la période
+     * @param int $chartWidth Largeur calculée du graphique
      * @return string Chemin de l'image générée
      */
-    private function generateWeeklyProductionChart($data) {
-        $this->console_log("=== GÉNÉRATION GRAPHIQUE PRODUCTION HEBDOMADAIRE ===");
+    private function generatePeriodProductionChart($data, $chartWidth) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUE PRODUCTION PÉRIODE LIBRE ===");
 
-        $filename = 'production_week_' . date('Y-m-d_H-i-s') . '.png';
+        $filename = 'production_period_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
-        // Données des processus (par jour)
+        // Données des processus (nombre variable de jours)
         $chaudron_data = $data['production']['CHAUDNQ'] ?? [];
         $soudure_data = $data['production']['SOUDNQ'] ?? [];
         $ct_data = $data['production']['CT'] ?? [];
 
-        $this->console_log("Chaudronnerie (7 jours): " . json_encode($chaudron_data));
-        $this->console_log("Soudure (7 jours): " . json_encode($soudure_data));
-        $this->console_log("CT (7 jours): " . json_encode($ct_data));
+        $this->console_log("Chaudronnerie (" . count($chaudron_data) . " jours): " . json_encode(array_slice($chaudron_data, 0, 5)) . (count($chaudron_data) > 5 ? '...' : ''));
+        $this->console_log("Soudure (" . count($soudure_data) . " jours): " . json_encode(array_slice($soudure_data, 0, 5)) . (count($soudure_data) > 5 ? '...' : ''));
+        $this->console_log("CT (" . count($ct_data) . " jours): " . json_encode(array_slice($ct_data, 0, 5)) . (count($ct_data) > 5 ? '...' : ''));
 
         // Vérifier qu'il y a au moins des données
         if (empty($chaudron_data) && empty($soudure_data) && empty($ct_data)) {
             $this->console_log("Aucune donnée production, création image vide");
-            return $this->createErrorImage('production', 'Aucune donnée de production cette semaine');
+            return $this->createErrorImage('production', 'Aucune donnée de production cette période');
         }
 
         try {
@@ -191,22 +239,29 @@ class GraphGeneratorModel {
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
             $this->console_log("Valeur max données: " . $maxValue . " → Axe Y fixé à: " . $yMax);
 
-            // Créer le graphique avec namespace moderne
-            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            // 🆕 Créer le graphique avec largeur dynamique
+            $graph = new Graph($chartWidth, self::CHART_HEIGHT);
             $graph->SetScale('textlin', 0, $yMax); // Forcer l'axe Y de 0 à $yMax
             $graph->SetMargin(80, 40, 40, 80);
 
-            // Titre et labels adaptés pour les jours
-            $graph->title->Set('Charge Production par Jour - Semaine sélectionnée');
+            // Titre et labels adaptés pour la période
+            $periodeInfo = $data['periode_info'];
+            $graph->title->Set('Charge Production par Jour - Période du ' . $periodeInfo['debut'] . ' au ' . $periodeInfo['fin']);
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
-            $graph->xaxis->title->Set('Jours de la semaine');
+            $graph->xaxis->title->Set('Jours de la période sélectionnée');
             $graph->xaxis->title->SetFont(FF_ARIAL, FS_NORMAL, 12);
             $graph->yaxis->title->Set('Nombre de personnes');
             $graph->yaxis->title->SetFont(FF_ARIAL, FS_NORMAL, 12);
 
-            // 🆕 Labels des jours (Lun, Mar, Mer, etc.)
+            // 🆕 Labels adaptatifs (générés par ChargeModel)
             $graph->xaxis->SetTickLabels($data['jours_labels'] ?? []);
-            $graph->xaxis->SetLabelAngle(45); // Incliner les labels pour lisibilité
+
+            // Rotation des labels selon la largeur
+            if ($periodeInfo['nombre_jours'] > 14) {
+                $graph->xaxis->SetLabelAngle(90); // Vertical pour beaucoup de jours
+            } else {
+                $graph->xaxis->SetLabelAngle(45); // Incliné pour peu de jours
+            }
 
             $hasData = false;
 
@@ -220,7 +275,7 @@ class GraphGeneratorModel {
                 $barplot1->SetLegend('Chaudronnerie');
                 $barplots[] = $barplot1;
                 $hasData = true;
-                $this->console_log("Barre chaudronnerie ajoutée (hebdomadaire)");
+                $this->console_log("Barre chaudronnerie ajoutée (période libre)");
             }
 
             if (!empty($soudure_data)) {
@@ -230,7 +285,7 @@ class GraphGeneratorModel {
                 $barplot2->SetLegend('Soudure');
                 $barplots[] = $barplot2;
                 $hasData = true;
-                $this->console_log("Barre soudure ajoutée (hebdomadaire)");
+                $this->console_log("Barre soudure ajoutée (période libre)");
             }
 
             if (!empty($ct_data)) {
@@ -240,7 +295,7 @@ class GraphGeneratorModel {
                 $barplot3->SetLegend('Contrôle');
                 $barplots[] = $barplot3;
                 $hasData = true;
-                $this->console_log("Barre CT ajoutée (hebdomadaire)");
+                $this->console_log("Barre CT ajoutée (période libre)");
             }
 
             if (!$hasData) {
@@ -261,29 +316,29 @@ class GraphGeneratorModel {
 
             // Sauvegarder l'image
             $graph->Stroke($filepath);
-            $this->console_log("Graphique production hebdomadaire sauvegardé: " . $filename);
+            $this->console_log("Graphique production période libre sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ")");
             return $filename;
 
         } catch (\Exception $e) {
-            $this->console_log("Erreur sauvegarde production hebdomadaire: " . $e->getMessage());
+            $this->console_log("Erreur sauvegarde production période libre: " . $e->getMessage());
             return $this->createErrorImage('production', 'Erreur sauvegarde: ' . $e->getMessage());
         }
     }
 
     /**
-     * 🆕 Génère le graphique Étude pour une semaine (par jour)
+     * 🆕 Génère le graphique Étude pour une période libre
      */
-    private function generateWeeklyEtudeChart($data) {
-        $this->console_log("=== GÉNÉRATION GRAPHIQUE ÉTUDE HEBDOMADAIRE ===");
+    private function generatePeriodEtudeChart($data, $chartWidth) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUE ÉTUDE PÉRIODE LIBRE ===");
 
-        $filename = 'etude_week_' . date('Y-m-d_H-i-s') . '.png';
+        $filename = 'etude_period_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
         $calc_data = $data['etude']['CALC'] ?? [];
         $proj_data = $data['etude']['PROJ'] ?? [];
 
         if (empty($calc_data) && empty($proj_data)) {
-            return $this->createErrorImage('etude', 'Aucune donnée d\'étude cette semaine');
+            return $this->createErrorImage('etude', 'Aucune donnée d\'étude cette période');
         }
 
         try {
@@ -298,16 +353,22 @@ class GraphGeneratorModel {
             // Définir l'échelle Y avec minimum de 3
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
 
-            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph = new Graph($chartWidth, self::CHART_HEIGHT);
             $graph->SetScale('textlin', 0, $yMax); // Forcer l'axe Y de 0 à $yMax
             $graph->SetMargin(80, 40, 40, 80);
 
-            $graph->title->Set('Charge Étude par Jour - Semaine sélectionnée');
+            $periodeInfo = $data['periode_info'];
+            $graph->title->Set('Charge Étude par Jour - Période du ' . $periodeInfo['debut'] . ' au ' . $periodeInfo['fin']);
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
-            $graph->xaxis->title->Set('Jours de la semaine');
+            $graph->xaxis->title->Set('Jours de la période sélectionnée');
             $graph->yaxis->title->Set('Nombre de personnes');
             $graph->xaxis->SetTickLabels($data['jours_labels'] ?? []);
-            $graph->xaxis->SetLabelAngle(45);
+
+            if ($periodeInfo['nombre_jours'] > 14) {
+                $graph->xaxis->SetLabelAngle(90);
+            } else {
+                $graph->xaxis->SetLabelAngle(45);
+            }
 
             $barplots = [];
             $hasData = false;
@@ -343,28 +404,28 @@ class GraphGeneratorModel {
 
             $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
-            $this->console_log("Graphique étude hebdomadaire sauvegardé: " . $filename);
+            $this->console_log("Graphique étude période libre sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ")");
             return $filename;
 
         } catch (\Exception $e) {
-            $this->console_log("Erreur sauvegarde étude hebdomadaire: " . $e->getMessage());
+            $this->console_log("Erreur sauvegarde étude période libre: " . $e->getMessage());
             return $this->createErrorImage('etude', 'Erreur sauvegarde: ' . $e->getMessage());
         }
     }
 
     /**
-     * 🆕 Génère le graphique Méthode pour une semaine (par jour)
+     * 🆕 Génère le graphique Méthode pour une période libre
      */
-    private function generateWeeklyMethodeChart($data) {
-        $this->console_log("=== GÉNÉRATION GRAPHIQUE MÉTHODE HEBDOMADAIRE ===");
+    private function generatePeriodMethodeChart($data, $chartWidth) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUE MÉTHODE PÉRIODE LIBRE ===");
 
-        $filename = 'methode_week_' . date('Y-m-d_H-i-s') . '.png';
+        $filename = 'methode_period_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
         $meth_data = $data['methode']['METH'] ?? [];
 
         if (empty($meth_data)) {
-            return $this->createErrorImage('methode', 'Aucune donnée de méthode cette semaine');
+            return $this->createErrorImage('methode', 'Aucune donnée de méthode cette période');
         }
 
         try {
@@ -377,16 +438,22 @@ class GraphGeneratorModel {
             // Définir l'échelle Y avec minimum de 3
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
 
-            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph = new Graph($chartWidth, self::CHART_HEIGHT);
             $graph->SetScale('textlin', 0, $yMax); // Forcer l'axe Y de 0 à $yMax
             $graph->SetMargin(80, 40, 40, 80);
 
-            $graph->title->Set('Charge Méthode par Jour - Semaine sélectionnée');
+            $periodeInfo = $data['periode_info'];
+            $graph->title->Set('Charge Méthode par Jour - Période du ' . $periodeInfo['debut'] . ' au ' . $periodeInfo['fin']);
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
-            $graph->xaxis->title->Set('Jours de la semaine');
+            $graph->xaxis->title->Set('Jours de la période sélectionnée');
             $graph->yaxis->title->Set('Nombre de personnes');
             $graph->xaxis->SetTickLabels($data['jours_labels'] ?? []);
-            $graph->xaxis->SetLabelAngle(45);
+
+            if ($periodeInfo['nombre_jours'] > 14) {
+                $graph->xaxis->SetLabelAngle(90);
+            } else {
+                $graph->xaxis->SetLabelAngle(45);
+            }
 
             $barplot1 = new BarPlot($meth_data);
             $barplot1->SetColor('brown');
@@ -396,29 +463,29 @@ class GraphGeneratorModel {
 
             $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
-            $this->console_log("Graphique méthode hebdomadaire sauvegardé: " . $filename);
+            $this->console_log("Graphique méthode période libre sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ")");
             return $filename;
 
         } catch (\Exception $e) {
-            $this->console_log("Erreur sauvegarde méthode hebdomadaire: " . $e->getMessage());
+            $this->console_log("Erreur sauvegarde méthode période libre: " . $e->getMessage());
             return $this->createErrorImage('methode', 'Erreur sauvegarde: ' . $e->getMessage());
         }
     }
 
     /**
-     * 🆕 Génère le graphique Qualité pour une semaine (par jour)
+     * 🆕 Génère le graphique Qualité pour une période libre
      */
-    private function generateWeeklyQualiteChart($data) {
-        $this->console_log("=== GÉNÉRATION GRAPHIQUE QUALITÉ HEBDOMADAIRE ===");
+    private function generatePeriodQualiteChart($data, $chartWidth) {
+        $this->console_log("=== GÉNÉRATION GRAPHIQUE QUALITÉ PÉRIODE LIBRE ===");
 
-        $filename = 'qualite_week_' . date('Y-m-d_H-i-s') . '.png';
+        $filename = 'qualite_period_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
         $qual_data = $data['qualite']['QUAL'] ?? [];
         $quals_data = $data['qualite']['QUALS'] ?? [];
 
         if (empty($qual_data) && empty($quals_data)) {
-            return $this->createErrorImage('qualite', 'Aucune donnée de qualité cette semaine');
+            return $this->createErrorImage('qualite', 'Aucune donnée de qualité cette période');
         }
 
         try {
@@ -433,16 +500,22 @@ class GraphGeneratorModel {
             // Définir l'échelle Y avec minimum de 3
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
 
-            $graph = new Graph(self::CHART_WIDTH, self::CHART_HEIGHT);
+            $graph = new Graph($chartWidth, self::CHART_HEIGHT);
             $graph->SetScale('textlin', 0, $yMax); // Forcer l'axe Y de 0 à $yMax
             $graph->SetMargin(80, 40, 40, 80);
 
-            $graph->title->Set('Charge Qualité par Jour - Semaine sélectionnée');
+            $periodeInfo = $data['periode_info'];
+            $graph->title->Set('Charge Qualité par Jour - Période du ' . $periodeInfo['debut'] . ' au ' . $periodeInfo['fin']);
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
-            $graph->xaxis->title->Set('Jours de la semaine');
+            $graph->xaxis->title->Set('Jours de la période sélectionnée');
             $graph->yaxis->title->Set('Nombre de personnes');
             $graph->xaxis->SetTickLabels($data['jours_labels'] ?? []);
-            $graph->xaxis->SetLabelAngle(45);
+
+            if ($periodeInfo['nombre_jours'] > 14) {
+                $graph->xaxis->SetLabelAngle(90);
+            } else {
+                $graph->xaxis->SetLabelAngle(45);
+            }
 
             $barplots = [];
             $hasData = false;
@@ -478,11 +551,11 @@ class GraphGeneratorModel {
 
             $graph->legend->SetPos(0.05, 0.15, 'right', 'top');
             $graph->Stroke($filepath);
-            $this->console_log("Graphique qualité hebdomadaire sauvegardé: " . $filename);
+            $this->console_log("Graphique qualité période libre sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ")");
             return $filename;
 
         } catch (\Exception $e) {
-            $this->console_log("Erreur sauvegarde qualité hebdomadaire: " . $e->getMessage());
+            $this->console_log("Erreur sauvegarde qualité période libre: " . $e->getMessage());
             return $this->createErrorImage('qualite', 'Erreur sauvegarde: ' . $e->getMessage());
         }
     }
@@ -555,7 +628,7 @@ class GraphGeneratorModel {
         $filepath = self::CHARTS_FOLDER . $filename;
 
         // Créer une image simple avec GD
-        $im = imagecreate(self::CHART_WIDTH, self::CHART_HEIGHT);
+        $im = imagecreate(self::CHART_BASE_WIDTH, self::CHART_HEIGHT);
         $white = imagecolorallocate($im, 255, 255, 255);
         $red = imagecolorallocate($im, 255, 0, 0);
         $black = imagecolorallocate($im, 0, 0, 0);
@@ -570,9 +643,9 @@ class GraphGeneratorModel {
         $shortMessage = substr($errorMessage, 0, 80);
         imagestring($im, 3, 50, 100, $shortMessage, $black);
 
-        // Informations sur l'affichage hebdomadaire
-        imagestring($im, 2, 50, 150, 'Mode: Affichage par jour (semaine)', $black);
-        imagestring($im, 2, 50, 170, 'Selectionnez une autre semaine ou verifiez les donnees', $black);
+        // Informations sur l'affichage période libre
+        imagestring($im, 2, 50, 150, 'Mode: Affichage par periode libre (jours ouvrés)', $black);
+        imagestring($im, 2, 50, 170, 'Selectionnez une autre periode ou verifiez les donnees', $black);
 
         // Sauvegarder
         imagepng($im, $filepath);

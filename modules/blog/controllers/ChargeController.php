@@ -9,7 +9,10 @@ use modules\blog\views\ChargeView;
 /**
  * Classe ChargeController
  *
- * Cette classe gère les opérations liées à l'analyse de charge avec sélecteur de semaine.
+ * Cette classe gère les opérations liées à l'analyse de charge avec sélection libre de période.
+ *
+ * VERSION REFACTORISÉE : Sélection libre date début → date fin
+ * Suppression du système de semaines prédéfinies
  */
 class ChargeController {
     private $dashboardModel;
@@ -28,12 +31,12 @@ class ChargeController {
     }
 
     /**
-     * Gère les actions liées à l'analyse de charge avec sélection de semaine
+     * 🆕 Gère les actions liées à l'analyse de charge avec sélection libre de période
      *
      * @param string $action Action à exécuter
      */
     public function handleRequest($action = '') {
-        echo "<script>console.log('=== DÉBUT handleRequest AVEC SÉLECTION SEMAINE ===');</script>";
+        echo "<script>console.log('=== DÉBUT handleRequest AVEC SÉLECTION LIBRE DE PÉRIODE ===');</script>";
         echo "<script>console.log('Action reçue: " . addslashes($action) . "');</script>";
         echo "<script>console.log('URL complète: " . addslashes($_SERVER['REQUEST_URI'] ?? 'N/A') . "');</script>";
         echo "<script>console.log('Paramètres GET: " . addslashes(json_encode($_GET)) . "');</script>";
@@ -54,60 +57,41 @@ class ChargeController {
 
             echo "<script>console.log('✓ Données disponibles, début du processus...');</script>";
 
-            // ÉTAPE 1 : Analyser les données pour obtenir toutes les semaines disponibles
-            echo "<script>console.log('📊 ÉTAPE 1: Récupération des semaines disponibles...');</script>";
-            $availableWeeks = $this->chargeModel->getAvailableWeeks();
+            // ÉTAPE 1 : Récupérer la plage de dates disponibles
+            echo "<script>console.log('📅 ÉTAPE 1: Récupération de la plage de dates disponibles...');</script>";
+            $dateRange = $this->chargeModel->getAvailableDateRange();
 
-            if (empty($availableWeeks)) {
-                echo "<script>console.log('❌ ERREUR: Aucune semaine disponible');</script>";
-                echo $this->chargeView->showErrorMessage("Aucune semaine disponible dans les données.");
+            if (!$dateRange['has_data']) {
+                echo "<script>console.log('❌ ERREUR: Aucune plage de dates disponible');</script>";
+                echo $this->chargeView->showErrorMessage("Aucune donnée disponible pour l'analyse de charge.");
                 return;
             }
 
-            echo "<script>console.log('✓ Semaines disponibles: " . count($availableWeeks) . "');</script>";
+            echo "<script>console.log('✓ Plage disponible: " . addslashes($dateRange['date_min']) . " → " . addslashes($dateRange['date_max']) . "');</script>";
 
-            // ÉTAPE 2 : Déterminer la semaine sélectionnée
-            $selectedWeek = $this->determineSelectedWeek($availableWeeks);
-            echo "<script>console.log('📅 Semaine sélectionnée: " . addslashes($selectedWeek) . "');</script>";
+            // ÉTAPE 2 : Récupérer et valider les dates de la période sélectionnée
+            echo "<script>console.log('🔍 ÉTAPE 2: Traitement de la période sélectionnée...');</script>";
+            $periodSelection = $this->handlePeriodSelection($dateRange);
 
-            // ÉTAPE 3 : Récupérer les données pour la semaine sélectionnée
-            echo "<script>console.log('🔍 ÉTAPE 3: Récupération données pour la semaine...');</script>";
-            $weeklyData = $this->chargeModel->getDailyDataForWeek($selectedWeek);
-
-            if (isset($weeklyData['error'])) {
-                echo "<script>console.log('❌ ERREUR récupération données semaine: " . addslashes($weeklyData['error']) . "');</script>";
-                echo $this->chargeView->showErrorMessage($weeklyData['error']);
-                return;
-            }
-
-            echo "<script>console.log('✓ Données semaine récupérées');</script>";
-
-            // ÉTAPE 4 : Génération des graphiques pour la semaine sélectionnée
-            echo "<script>console.log('🎨 ÉTAPE 4: Génération des graphiques pour la semaine...');</script>";
-            $chartPaths = $this->graphGenerator->generateWeeklyCharts($weeklyData['graphiquesData']);
-            echo "<script>console.log('✓ Graphiques générés: " . count($chartPaths) . " fichiers');</script>";
-
-            // ÉTAPE 5 : Préparer les résultats pour l'affichage
-            echo "<script>console.log('🔧 ÉTAPE 5: Préparation pour affichage...');</script>";
-
-            // Analyser toutes les données pour le récapitulatif général
+            // ÉTAPE 3 : Analyser toutes les données pour le récapitulatif général (comme avant)
+            echo "<script>console.log('📊 ÉTAPE 3: Analyse complète pour récapitulatif...');</script>";
             $resultatAnalyseComplete = $this->chargeModel->analyserChargeParPeriode();
             $resultatsFormattés = $this->chargeModel->formaterResultats($resultatAnalyseComplete);
 
-            // Obtenir un résumé des données pour l'affichage
+            // ÉTAPE 4 : Obtenir un résumé des données pour l'affichage
             $dataSummary = $this->dashboardModel->getDataSummary();
             $fileName = "Données de la base (" . $dataSummary['total_entries'] . " entrées)";
 
-            echo "<script>console.log('🖼️ ÉTAPE 6: Affichage de la page avec sélecteur de semaine');</script>";
+            echo "<script>console.log('🖼️ ÉTAPE 4: Affichage de la page avec sélecteur libre');</script>";
 
-            // Afficher les résultats avec le sélecteur de semaine
+            // Afficher les résultats avec le nouveau système
             echo $this->chargeView->showChargeAnalysis(
                 $userInfo,
                 $fileName,
                 $resultatsFormattés,
-                $availableWeeks,
-                $selectedWeek,
-                $chartPaths
+                $periodSelection['periodData'] ?? [],
+                $periodSelection['chartPaths'] ?? [],
+                $dateRange
             );
 
         } catch (\Exception $e) {
@@ -115,36 +99,216 @@ class ChargeController {
             echo $this->chargeView->showErrorMessage("Une erreur est survenue : " . $e->getMessage());
         }
 
-        echo "<script>console.log('=== FIN handleRequest AVEC SÉLECTION SEMAINE ===');</script>";
+        echo "<script>console.log('=== FIN handleRequest AVEC SÉLECTION LIBRE DE PÉRIODE ===');</script>";
     }
 
     /**
-     * 🆕 Détermine la semaine sélectionnée en fonction des paramètres URL
+     * 🆕 Gère la sélection et validation de la période libre
      *
-     * @param array $availableWeeks Liste des semaines disponibles
-     * @return string Identifiant de la semaine sélectionnée
+     * @param array $dateRange Plage de dates disponibles
+     * @return array Données de la période et graphiques générés
      */
-    private function determineSelectedWeek($availableWeeks) {
-        // Récupérer le paramètre de semaine depuis l'URL
-        $requestedWeek = $_GET['selected_week'] ?? '';
+    private function handlePeriodSelection($dateRange) {
+        echo "<script>console.log('=== TRAITEMENT SÉLECTION PÉRIODE LIBRE ===');</script>";
 
-        echo "<script>console.log('Semaine demandée via URL: " . addslashes($requestedWeek) . "');</script>";
+        // Récupérer les dates depuis les paramètres GET
+        $dateDebut = trim($_GET['date_debut'] ?? '');
+        $dateFin = trim($_GET['date_fin'] ?? '');
 
-        // Vérifier si la semaine demandée existe dans les semaines disponibles
-        if (!empty($requestedWeek)) {
-            foreach ($availableWeeks as $week) {
-                if ($week['value'] === $requestedWeek) {
-                    echo "<script>console.log('✓ Semaine demandée trouvée et valide');</script>";
-                    return $requestedWeek;
-                }
-            }
-            echo "<script>console.log('⚠️ Semaine demandée non trouvée, utilisation de la semaine par défaut');</script>";
+        echo "<script>console.log('Dates reçues - Début: " . addslashes($dateDebut) . ", Fin: " . addslashes($dateFin) . "');</script>";
+
+        // Si aucune date fournie, ne pas traiter (affichage initial sans graphiques)
+        if (empty($dateDebut) || empty($dateFin)) {
+            echo "<script>console.log('ℹ️ Aucune période sélectionnée, affichage initial');</script>";
+            return [
+                'periodData' => [],
+                'chartPaths' => []
+            ];
         }
 
-        // Par défaut, utiliser la première semaine disponible (semaine courante ou la plus proche)
-        $defaultWeek = $availableWeeks[0]['value'];
-        echo "<script>console.log('Semaine par défaut sélectionnée: " . addslashes($defaultWeek) . "');</script>";
+        // Validation des dates
+        $validationResult = $this->validatePeriodDates($dateDebut, $dateFin, $dateRange);
+        if (!$validationResult['success']) {
+            echo "<script>console.log('❌ Validation période échouée: " . addslashes($validationResult['message']) . "');</script>";
+            throw new \Exception($validationResult['message']);
+        }
 
-        return $defaultWeek;
+        echo "<script>console.log('✅ Validation période réussie');</script>";
+
+        // ÉTAPE A : Récupérer les données pour la période sélectionnée
+        echo "<script>console.log('🔍 RÉCUPÉRATION DONNÉES PÉRIODE: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . "');</script>";
+        $periodData = $this->chargeModel->getDailyDataForPeriod($dateDebut, $dateFin);
+
+        if (isset($periodData['error'])) {
+            echo "<script>console.log('❌ ERREUR récupération données période: " . addslashes($periodData['error']) . "');</script>";
+            throw new \Exception($periodData['error']);
+        }
+
+        echo "<script>console.log('✓ Données période récupérées: " . $periodData['donneesCount'] . " entrées sur " . $periodData['nombreJoursOuvres'] . " jours ouvrés');</script>";
+
+        // ÉTAPE B : Génération des graphiques pour la période sélectionnée
+        echo "<script>console.log('🎨 GÉNÉRATION DES GRAPHIQUES POUR LA PÉRIODE...');</script>";
+        $chartPaths = $this->graphGenerator->generatePeriodCharts($periodData['graphiquesData']);
+        echo "<script>console.log('✓ Graphiques générés: " . count($chartPaths) . " fichiers');</script>";
+
+        return [
+            'periodData' => $periodData,
+            'chartPaths' => $chartPaths
+        ];
+    }
+
+    /**
+     * 🆕 Valide les dates de la période sélectionnée
+     *
+     * @param string $dateDebut Date de début
+     * @param string $dateFin Date de fin
+     * @param array $dateRange Plage de dates disponibles
+     * @return array Résultat de la validation
+     */
+    private function validatePeriodDates($dateDebut, $dateFin, $dateRange) {
+        echo "<script>console.log('=== VALIDATION DES DATES DE PÉRIODE ===');</script>";
+
+        // Validation format de date
+        try {
+            $debutObj = new \DateTime($dateDebut);
+            $finObj = new \DateTime($dateFin);
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Format de date invalide. Veuillez utiliser le format YYYY-MM-DD."
+            ];
+        }
+
+        // Validation : début doit être antérieur ou égal à la fin
+        if ($debutObj > $finObj) {
+            return [
+                'success' => false,
+                'message' => "La date de début doit être antérieure ou égale à la date de fin."
+            ];
+        }
+
+        // Validation : les dates doivent être dans la plage disponible
+        if ($dateRange['has_data']) {
+            $rangeMinObj = new \DateTime($dateRange['date_min']);
+            $rangeMaxObj = new \DateTime($dateRange['date_max']);
+
+            if ($debutObj < $rangeMinObj || $finObj > $rangeMaxObj) {
+                return [
+                    'success' => false,
+                    'message' => "La période sélectionnée doit être comprise entre " .
+                        $dateRange['date_min_formatted'] . " et " . $dateRange['date_max_formatted'] .
+                        " (plage des données disponibles)."
+                ];
+            }
+        }
+
+        // Avertissement pour les très longues périodes (> 180 jours)
+        $diffTime = $finObj->getTimestamp() - $debutObj->getTimestamp();
+        $diffDays = ceil($diffTime / (24 * 60 * 60)) + 1;
+
+        if ($diffDays > 180) {
+            echo "<script>console.log('⚠️ AVERTISSEMENT: Période très longue (" . $diffDays . " jours)');</script>";
+            // On pourrait ajouter une limitation ici si nécessaire
+        }
+
+        echo "<script>console.log('✅ Dates validées: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . " (" . $diffDays . " jours)');</script>";
+
+        return [
+            'success' => true,
+            'message' => "Dates valides",
+            'nombre_jours' => $diffDays
+        ];
+    }
+
+    /**
+     * 🆕 Valide une date individuelle
+     *
+     * @param string $dateStr Date à valider
+     * @param string $fieldName Nom du champ pour le message d'erreur
+     * @return array Résultat de la validation
+     */
+    private function validateSingleDate($dateStr, $fieldName) {
+        if (empty($dateStr)) {
+            return [
+                'success' => false,
+                'message' => "Le champ '$fieldName' est obligatoire."
+            ];
+        }
+
+        try {
+            $dateObj = new \DateTime($dateStr);
+            // Vérifier que la chaîne correspond exactement au format attendu
+            if ($dateObj->format('Y-m-d') !== $dateStr) {
+                throw new \Exception("Format incorrect");
+            }
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Format de date invalide pour '$fieldName'. Utilisez le format YYYY-MM-DD."
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => "Date valide",
+            'date_object' => $dateObj
+        ];
+    }
+
+    /**
+     * 🆕 Gère les cas d'erreur de données manquantes
+     *
+     * @param string $userErrorMessage Message d'erreur pour l'utilisateur
+     * @param string $debugMessage Message de debug pour la console
+     */
+    private function handleDataError($userErrorMessage, $debugMessage = '') {
+        if (!empty($debugMessage)) {
+            echo "<script>console.log('❌ " . addslashes($debugMessage) . "');</script>";
+        }
+        echo $this->chargeView->showErrorMessage($userErrorMessage);
+    }
+
+    /**
+     * 🆕 Log une étape du processus
+     *
+     * @param string $step Nom de l'étape
+     * @param string $message Message de l'étape
+     * @param bool $success Succès ou non (pour l'icône)
+     */
+    private function logStep($step, $message, $success = true) {
+        $icon = $success ? '✓' : '❌';
+        echo "<script>console.log('" . $icon . " [" . addslashes($step) . "] " . addslashes($message) . "');</script>";
+    }
+
+    /**
+     * 🆕 Obtient des informations de debug sur la période
+     *
+     * @param string $dateDebut Date de début
+     * @param string $dateFin Date de fin
+     * @return array Informations calculées
+     */
+    private function calculatePeriodInfo($dateDebut, $dateFin) {
+        try {
+            $debutObj = new \DateTime($dateDebut);
+            $finObj = new \DateTime($dateFin);
+
+            $diffTime = $finObj->getTimestamp() - $debutObj->getTimestamp();
+            $totalDays = ceil($diffTime / (24 * 60 * 60)) + 1;
+
+            // Estimation approximative des jours ouvrés (5/7 des jours)
+            $estimatedWorkingDays = floor($totalDays * 5 / 7);
+
+            return [
+                'total_days' => $totalDays,
+                'estimated_working_days' => $estimatedWorkingDays,
+                'period_length' => $totalDays <= 7 ? 'courte' : ($totalDays <= 30 ? 'moyenne' : 'longue')
+            ];
+        } catch (\Exception $e) {
+            return [
+                'total_days' => 0,
+                'estimated_working_days' => 0,
+                'period_length' => 'invalide'
+            ];
+        }
     }
 }

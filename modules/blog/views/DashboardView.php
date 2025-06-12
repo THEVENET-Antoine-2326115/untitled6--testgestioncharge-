@@ -104,14 +104,14 @@ class DashboardView {
         </head>
         <body>
         <div class="navbar">
-            <a href="index.php">Tableau de bord</a>
+            <a href="index.php">gestion des données</a>
             <a href="index.php?action=analyse-charge">Analyse de Charge</a>
             <a href="index.php?action=logout">Déconnexion</a>
         </div>
 
         <div class="container">
             <div class="card">
-                <h1>Tableau de bord - Gestion de Charge</h1>
+                <h1>gestion des données d’entrée</h1>
                 <p>Bienvenue <?php echo htmlspecialchars($userInfo['nom']); ?></p>
 
                 <div class="menu-items">
@@ -142,19 +142,7 @@ class DashboardView {
                         </div>
                     <?php endif; ?>
 
-                    <!-- Affichage du résumé des données -->
-                    <?php if (isset($dashboardData['summary'])): ?>
-                        <div class="summary-box">
-                            <div class="summary-title">État des données</div>
-                            <?php if ($dashboardData['summary']['total_entries'] > 0): ?>
-                                <p><strong>Données disponibles :</strong> <?php echo $dashboardData['summary']['total_entries']; ?> entrées</p>
-                                <p><strong>Période :</strong> <?php echo $dashboardData['summary']['date_debut']; ?> au <?php echo $dashboardData['summary']['date_fin']; ?></p>
-                                <p><strong>Processus :</strong> <?php echo $dashboardData['summary']['processus_uniques']; ?> processus différents</p>
-                            <?php else: ?>
-                                <p><strong>Aucune donnée</strong> disponible dans la base de données.</p>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
+
 
                     <!-- Informations sur les fichiers -->
                     <?php if (isset($dashboardData['files_info'])): ?>
@@ -162,6 +150,52 @@ class DashboardView {
                             <div class="summary-title">Fichiers disponibles</div>
                             <p><strong>Fichiers MPP :</strong> <?php echo $dashboardData['files_info']['mpp_count']; ?> fichier(s)</p>
                             <p><strong>Fichiers XLSX :</strong> <?php echo $dashboardData['files_info']['xlsx_count']; ?> fichier(s)</p>
+
+                            <!-- 🆕 SECTION DÉTAILLÉE DES FICHIERS XLSX -->
+                            <?php if (isset($dashboardData['files_info']['xlsx_files_detailed']) && !empty($dashboardData['files_info']['xlsx_files_detailed'])): ?>
+                                <div class="xlsx-files-details">
+                                    <h4>📋 Détail des fichiers XLSX convertis :</h4>
+                                    <div class="xlsx-files-list">
+                                        <?php foreach ($dashboardData['files_info']['xlsx_files_detailed'] as $file): ?>
+                                            <div class="xlsx-file-item <?php echo $file['has_numero'] ? 'with-numero' : 'without-numero'; ?>">
+                                                <div class="file-main-info">
+                                                    <span class="file-icon">📄</span>
+                                                    <div class="file-details">
+                                                        <?php if ($file['has_numero']): ?>
+                                                            <div class="file-numero-affaire">
+                                                                <strong>N° Affaire :</strong>
+                                                                <span class="numero-badge"><?php echo htmlspecialchars($file['numero_affaire']); ?></span>
+                                                            </div>
+                                                            <div class="file-nom-propre">
+                                                                <strong>Nom :</strong> <?php echo htmlspecialchars($file['nom_propre']); ?>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <div class="file-nom-complet">
+                                                                <strong>Fichier :</strong> <?php echo htmlspecialchars(pathinfo($file['name'], PATHINFO_FILENAME)); ?>
+                                                            </div>
+                                                            <div class="file-note">
+                                                                <small>⚠️ Numéro d'affaire non détecté</small>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                                <div class="file-meta-info">
+                                                    <small class="file-size">
+                                                        📦 <?php echo htmlspecialchars($file['size_formatted']); ?>
+                                                    </small>
+                                                    <small class="file-date">
+                                                        🕒 <?php echo htmlspecialchars($file['modified_formatted']); ?>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <div class="xlsx-files-empty">
+                                    <p><em>Aucun fichier XLSX disponible. Convertissez d'abord des fichiers MPP.</em></p>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
 
