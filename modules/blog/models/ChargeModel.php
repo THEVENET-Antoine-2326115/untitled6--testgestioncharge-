@@ -7,8 +7,8 @@ namespace modules\blog\models;
  * Cette classe gère l'analyse de la charge de travail à partir des données
  * récupérées depuis la base de données via ImportModel.
  *
- * VERSION REFACTORISÉE : Sélection libre de période (date début → date fin)
- * Suppression du système de semaines prédéfinies
+ * VERSION REFACTORISÉE : Sélection libre de période avec affichage par semaines
+ * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
  */
 class ChargeModel {
     /**
@@ -128,8 +128,8 @@ class ChargeModel {
 
         echo "<script>console.log('[ChargeModel] Données trouvées pour cette période: " . count($donneesPeriode) . "');</script>";
 
-        // Convertir en format graphique par jour
-        $graphiquesData = $this->preparePeriodGraphicsData($donneesPeriode, $debutPeriode, $finPeriode);
+        // 🆕 MODIFICATION : Convertir en format graphique par semaines au lieu de jours
+        $graphiquesData = $this->preparePeriodGraphicsDataWeekly($donneesPeriode, $debutPeriode, $finPeriode);
 
         return [
             'graphiquesData' => $graphiquesData,
@@ -141,15 +141,15 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 NOUVELLE MÉTHODE : Prépare les données graphiques pour une période libre
+     * 🆕 NOUVELLE MÉTHODE : Prépare les données graphiques par semaines pour une période libre
      *
      * @param array $donneesPeriode Données de la période
      * @param \DateTime $debutPeriode Date de début
      * @param \DateTime $finPeriode Date de fin
-     * @return array Données formatées pour JPGraph
+     * @return array Données formatées pour JPGraph (moyennes par semaines)
      */
-    private function preparePeriodGraphicsData($donneesPeriode, $debutPeriode, $finPeriode) {
-        echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES PÉRIODE LIBRE ===');</script>";
+    private function preparePeriodGraphicsDataWeekly($donneesPeriode, $debutPeriode, $finPeriode) {
+        echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES PAR SEMAINES ===');</script>";
 
         // Mapping des processus vers les catégories
         $mappingProcessus = [
@@ -159,19 +159,14 @@ class ChargeModel {
             'qualite' => ['QUAL', 'QUALS']
         ];
 
-        // Créer la liste de TOUS les jours ouvrés de la période (même sans données)
+        // 🆕 ÉTAPE 1 : Calculer d'abord les données par jour (comme avant)
         $joursOuvres = $this->calculateWorkingDaysBetween($debutPeriode, $finPeriode);
         $nombreJours = count($joursOuvres);
 
         echo "<script>console.log('[ChargeModel] Jours ouvrés à traiter: " . $nombreJours . "');</script>";
 
-        // Créer les labels adaptatifs selon la durée de la période
-        $joursLabels = $this->generateAdaptiveLabels($joursOuvres);
-
-        echo "<script>console.log('[ChargeModel] Labels générés: " . count($joursLabels) . "');</script>";
-
         // Initialiser les données par catégorie et par processus (tous les jours ouvrés)
-        $donnees = [
+        $donneesParJour = [
             'production' => [
                 'CHAUDNQ' => array_fill(0, $nombreJours, 0),
                 'SOUDNQ' => array_fill(0, $nombreJours, 0),
@@ -196,7 +191,7 @@ class ChargeModel {
             $dateToIndexMap[$jourObj->format('Y-m-d')] = $index;
         }
 
-        // Remplir les données jour par jour
+        // Remplir les données jour par jour (comme avant)
         foreach ($donneesPeriode as $donnee) {
             $dateData = $donnee['Date'];
             $processus = $donnee['Processus'];
@@ -219,43 +214,183 @@ class ChargeModel {
                 }
             }
 
-            if ($categorieProcessus && isset($donnees[$categorieProcessus][$processus])) {
-                $donnees[$categorieProcessus][$processus][$indexJour] += $charge;
+            if ($categorieProcessus && isset($donneesParJour[$categorieProcessus][$processus])) {
+                $donneesParJour[$categorieProcessus][$processus][$indexJour] += $charge;
                 echo "<script>console.log('[ChargeModel] Ajout: " . addslashes($processus) . " (" . addslashes($categorieProcessus) . ") jour " . $indexJour . " = +" . $charge . "');</script>";
             } else {
                 echo "<script>console.log('[ChargeModel] Processus ignoré: " . addslashes($processus) . " (catégorie non trouvée)');</script>";
             }
         }
 
+        // 🆕 ÉTAPE 2 : Grouper les données par semaines et calculer les moyennes
+        echo "<script>console.log('[ChargeModel] === GROUPEMENT PAR SEMAINES ===');</script>";
+
+        $donneesParSemaine = $this->groupDataByWeeks($donneesParJour, $joursOuvres, $mappingProcessus);
+        $semainesLabels = $this->generateWeeklyLabels($joursOuvres);
+
+        echo "<script>console.log('[ChargeModel] Nombre de semaines générées: " . count($semainesLabels) . "');</script>";
+
+        // Calculer la largeur dynamique basée sur le nombre de semaines
+        $nombreSemaines = count($semainesLabels);
+        $largeurGraphique = max(900, $nombreSemaines * 120); // 120px par semaine
+
         // Ajouter les labels et métadonnées aux données
-        $graphiquesData = array_merge($donnees, [
-            'jours_labels' => $joursLabels,
+        $graphiquesData = array_merge($donneesParSemaine, [
+            'semaines_labels' => $semainesLabels, // 🆕 Labels de semaines au lieu de jours
             'periode_info' => [
                 'debut' => $debutPeriode->format('d/m/Y'),
                 'fin' => $finPeriode->format('d/m/Y'),
                 'nombre_jours' => $nombreJours,
-                'largeur_graphique' => max(900, $nombreJours * 60) // Largeur dynamique
+                'nombre_semaines' => $nombreSemaines, // 🆕 Ajout du nombre de semaines
+                'largeur_graphique' => $largeurGraphique // 🆕 Largeur adaptée aux semaines
             ]
         ]);
 
-        // Log des totaux par catégorie
+        // Log des totaux par catégorie (moyennes)
         foreach ($mappingProcessus as $categorie => $processusListe) {
             $totalCategorie = 0;
             foreach ($processusListe as $proc) {
-                if (isset($donnees[$categorie][$proc])) {
-                    $totalProc = array_sum($donnees[$categorie][$proc]);
+                if (isset($donneesParSemaine[$categorie][$proc])) {
+                    $totalProc = array_sum($donneesParSemaine[$categorie][$proc]);
                     $totalCategorie += $totalProc;
                     if ($totalProc > 0) {
-                        echo "<script>console.log('[ChargeModel] Total " . addslashes($proc) . ": " . $totalProc . "');</script>";
+                        echo "<script>console.log('[ChargeModel] Moyenne totale " . addslashes($proc) . ": " . $totalProc . "');</script>";
                     }
                 }
             }
-            echo "<script>console.log('[ChargeModel] Total catégorie " . addslashes($categorie) . ": " . $totalCategorie . "');</script>";
+            echo "<script>console.log('[ChargeModel] Moyenne totale catégorie " . addslashes($categorie) . ": " . $totalCategorie . "');</script>";
         }
 
-        echo "<script>console.log('[ChargeModel] Données graphiques période libre préparées');</script>";
+        echo "<script>console.log('[ChargeModel] Données graphiques par semaines préparées');</script>";
 
         return $graphiquesData;
+    }
+
+    /**
+     * 🆕 NOUVELLE MÉTHODE : Groupe les données par semaines et calcule les moyennes
+     *
+     * @param array $donneesParJour Données organisées par jour
+     * @param array $joursOuvres Liste des jours ouvrés
+     * @param array $mappingProcessus Mapping des processus par catégorie
+     * @return array Données groupées par semaines avec moyennes
+     */
+    private function groupDataByWeeks($donneesParJour, $joursOuvres, $mappingProcessus) {
+        echo "<script>console.log('[ChargeModel] === GROUPEMENT PAR SEMAINES ===');</script>";
+
+        // Organiser les jours par semaines
+        $semainesData = [];
+        $semaineActuelle = [];
+        $numeroSemaine = 0;
+
+        foreach ($joursOuvres as $index => $jourObj) {
+            $jourSemaine = (int)$jourObj->format('N'); // 1=Lundi, 5=Vendredi
+
+            // Si c'est lundi ET qu'on a déjà des jours dans la semaine, commencer une nouvelle semaine
+            if ($jourSemaine == 1 && !empty($semaineActuelle)) {
+                $semainesData[$numeroSemaine] = $semaineActuelle;
+                $semaineActuelle = [];
+                $numeroSemaine++;
+            }
+
+            $semaineActuelle[] = $index; // Stocker l'index du jour
+        }
+
+        // Ajouter la dernière semaine si elle contient des jours
+        if (!empty($semaineActuelle)) {
+            $semainesData[$numeroSemaine] = $semaineActuelle;
+        }
+
+        echo "<script>console.log('[ChargeModel] Nombre de semaines détectées: " . count($semainesData) . "');</script>";
+
+        // Calculer les moyennes par semaine pour chaque processus
+        $donneesParSemaine = [
+            'production' => [
+                'CHAUDNQ' => [],
+                'SOUDNQ' => [],
+                'CT' => []
+            ],
+            'etude' => [
+                'CALC' => [],
+                'PROJ' => []
+            ],
+            'methode' => [
+                'METH' => []
+            ],
+            'qualite' => [
+                'QUAL' => [],
+                'QUALS' => []
+            ]
+        ];
+
+        foreach ($semainesData as $numeroSem => $joursIndices) {
+            echo "<script>console.log('[ChargeModel] Traitement semaine " . $numeroSem . " avec " . count($joursIndices) . " jours');</script>";
+
+            foreach ($mappingProcessus as $categorie => $processusListe) {
+                foreach ($processusListe as $processus) {
+                    if (isset($donneesParJour[$categorie][$processus])) {
+                        // Calculer la somme des charges pour cette semaine
+                        $sommeSemaine = 0;
+                        foreach ($joursIndices as $indexJour) {
+                            $sommeSemaine += $donneesParJour[$categorie][$processus][$indexJour];
+                        }
+
+                        // 🎯 DIVISION PAR 5 (toujours, même pour semaines incomplètes)
+                        $moyenneSemaine = $sommeSemaine / 5;
+
+                        $donneesParSemaine[$categorie][$processus][] = $moyenneSemaine;
+
+                        if ($moyenneSemaine > 0) {
+                            echo "<script>console.log('[ChargeModel] " . addslashes($processus) . " S" . $numeroSem . ": " . $sommeSemaine . " total ÷ 5 = " . $moyenneSemaine . " moyenne');</script>";
+                        }
+                    }
+                }
+            }
+        }
+
+        return $donneesParSemaine;
+    }
+
+    /**
+     * 🆕 NOUVELLE MÉTHODE : Génère les labels pour les semaines
+     *
+     * @param array $joursOuvres Liste des jours ouvrés
+     * @return array Labels des semaines
+     */
+    private function generateWeeklyLabels($joursOuvres) {
+        echo "<script>console.log('[ChargeModel] === GÉNÉRATION LABELS SEMAINES ===');</script>";
+
+        $labels = [];
+        $semaineActuelle = [];
+        $numeroSemaine = 1;
+
+        foreach ($joursOuvres as $jourObj) {
+            $jourSemaine = (int)$jourObj->format('N'); // 1=Lundi, 5=Vendredi
+
+            // Si c'est lundi ET qu'on a déjà des jours dans la semaine, finaliser la semaine précédente
+            if ($jourSemaine == 1 && !empty($semaineActuelle)) {
+                // Créer le label pour la semaine précédente
+                $premierJour = reset($semaineActuelle);
+                $dernierJour = end($semaineActuelle);
+                $labels[] = $premierJour->format('d/m') . '-' . $dernierJour->format('d/m');
+
+                // Commencer la nouvelle semaine
+                $semaineActuelle = [$jourObj];
+                $numeroSemaine++;
+            } else {
+                $semaineActuelle[] = $jourObj;
+            }
+        }
+
+        // Ajouter la dernière semaine si elle contient des jours
+        if (!empty($semaineActuelle)) {
+            $premierJour = reset($semaineActuelle);
+            $dernierJour = end($semaineActuelle);
+            $labels[] = $premierJour->format('d/m') . '-' . $dernierJour->format('d/m');
+        }
+
+        echo "<script>console.log('[ChargeModel] Labels semaines générés: " . implode(', ', $labels) . "');</script>";
+
+        return $labels;
     }
 
     /**
@@ -289,46 +424,6 @@ class ChargeModel {
     private function isWorkingDay($date) {
         $dayOfWeek = (int)$date->format('N'); // 1=Lundi, 7=Dimanche
         return $dayOfWeek >= 1 && $dayOfWeek <= 5; // Lundi à Vendredi
-    }
-
-    /**
-     * 🆕 Génère des labels adaptatifs selon la durée de la période
-     *
-     * @param array $joursOuvres Liste des jours ouvrés
-     * @return array Labels formatés pour l'affichage
-     */
-    private function generateAdaptiveLabels($joursOuvres) {
-        $nombreJours = count($joursOuvres);
-        $labels = [];
-
-        if ($nombreJours <= 14) {
-            // <= 14 jours : afficher tous les jours (format court)
-            foreach ($joursOuvres as $jour) {
-                $labels[] = $jour->format('d/m'); // Ex: "03/12"
-            }
-        } elseif ($nombreJours <= 30) {
-            // 15-30 jours : afficher 1 jour sur 2
-            foreach ($joursOuvres as $index => $jour) {
-                if ($index % 2 === 0) {
-                    $labels[] = $jour->format('d/m');
-                } else {
-                    $labels[] = ''; // Label vide pour espacement
-                }
-            }
-        } else {
-            // > 30 jours : afficher 1 jour sur 5 (environ toutes les semaines)
-            foreach ($joursOuvres as $index => $jour) {
-                if ($index % 5 === 0) {
-                    $labels[] = $jour->format('d/m');
-                } else {
-                    $labels[] = ''; // Label vide pour espacement
-                }
-            }
-        }
-
-        echo "<script>console.log('[ChargeModel] Stratégie labels pour " . $nombreJours . " jours: " . ($nombreJours <= 14 ? 'tous' : ($nombreJours <= 30 ? '1/2' : '1/5')) . "');</script>";
-
-        return $labels;
     }
 
     /**

@@ -11,8 +11,8 @@ use modules\blog\views\ChargeView;
  *
  * Cette classe gère les opérations liées à l'analyse de charge avec sélection libre de période.
  *
- * VERSION REFACTORISÉE : Sélection libre date début → date fin
- * Suppression du système de semaines prédéfinies
+ * VERSION REFACTORISÉE : Sélection libre date début → date fin avec affichage par semaines
+ * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
  */
 class ChargeController {
     private $dashboardModel;
@@ -31,12 +31,12 @@ class ChargeController {
     }
 
     /**
-     * 🆕 Gère les actions liées à l'analyse de charge avec sélection libre de période
+     * 🆕 Gère les actions liées à l'analyse de charge avec sélection libre de période (affichage par semaines)
      *
      * @param string $action Action à exécuter
      */
     public function handleRequest($action = '') {
-        echo "<script>console.log('=== DÉBUT handleRequest AVEC SÉLECTION LIBRE DE PÉRIODE ===');</script>";
+        echo "<script>console.log('=== DÉBUT handleRequest AVEC AFFICHAGE PAR SEMAINES ===');</script>";
         echo "<script>console.log('Action reçue: " . addslashes($action) . "');</script>";
         echo "<script>console.log('URL complète: " . addslashes($_SERVER['REQUEST_URI'] ?? 'N/A') . "');</script>";
         echo "<script>console.log('Paramètres GET: " . addslashes(json_encode($_GET)) . "');</script>";
@@ -82,9 +82,9 @@ class ChargeController {
             $dataSummary = $this->dashboardModel->getDataSummary();
             $fileName = "Données de la base (" . $dataSummary['total_entries'] . " entrées)";
 
-            echo "<script>console.log('🖼️ ÉTAPE 4: Affichage de la page avec sélecteur libre');</script>";
+            echo "<script>console.log('🖼️ ÉTAPE 4: Affichage de la page avec graphiques par semaines');</script>";
 
-            // Afficher les résultats avec le nouveau système
+            // Afficher les résultats avec le nouveau système par semaines
             echo $this->chargeView->showChargeAnalysis(
                 $userInfo,
                 $fileName,
@@ -99,17 +99,17 @@ class ChargeController {
             echo $this->chargeView->showErrorMessage("Une erreur est survenue : " . $e->getMessage());
         }
 
-        echo "<script>console.log('=== FIN handleRequest AVEC SÉLECTION LIBRE DE PÉRIODE ===');</script>";
+        echo "<script>console.log('=== FIN handleRequest AVEC AFFICHAGE PAR SEMAINES ===');</script>";
     }
 
     /**
-     * 🆕 Gère la sélection et validation de la période libre
+     * 🆕 Gère la sélection et validation de la période libre (avec génération de graphiques par semaines)
      *
      * @param array $dateRange Plage de dates disponibles
-     * @return array Données de la période et graphiques générés
+     * @return array Données de la période et graphiques générés (par semaines)
      */
     private function handlePeriodSelection($dateRange) {
-        echo "<script>console.log('=== TRAITEMENT SÉLECTION PÉRIODE LIBRE ===');</script>";
+        echo "<script>console.log('=== TRAITEMENT SÉLECTION PÉRIODE LIBRE (AFFICHAGE SEMAINES) ===');</script>";
 
         // Récupérer les dates depuis les paramètres GET
         $dateDebut = trim($_GET['date_debut'] ?? '');
@@ -135,8 +135,8 @@ class ChargeController {
 
         echo "<script>console.log('✅ Validation période réussie');</script>";
 
-        // ÉTAPE A : Récupérer les données pour la période sélectionnée
-        echo "<script>console.log('🔍 RÉCUPÉRATION DONNÉES PÉRIODE: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . "');</script>";
+        // ÉTAPE A : Récupérer les données pour la période sélectionnée (maintenant organisées par semaines)
+        echo "<script>console.log('🔍 RÉCUPÉRATION DONNÉES PÉRIODE (CALCUL PAR SEMAINES): " . addslashes($dateDebut) . " → " . addslashes($dateFin) . "');</script>";
         $periodData = $this->chargeModel->getDailyDataForPeriod($dateDebut, $dateFin);
 
         if (isset($periodData['error'])) {
@@ -144,12 +144,14 @@ class ChargeController {
             throw new \Exception($periodData['error']);
         }
 
-        echo "<script>console.log('✓ Données période récupérées: " . $periodData['donneesCount'] . " entrées sur " . $periodData['nombreJoursOuvres'] . " jours ouvrés');</script>";
+        // 🆕 INFORMATION PLUS PRÉCISE sur le traitement par semaines
+        $nombreSemaines = $periodData['graphiquesData']['periode_info']['nombre_semaines'] ?? 'N/A';
+        echo "<script>console.log('✓ Données période récupérées: " . $periodData['donneesCount'] . " entrées sur " . $periodData['nombreJoursOuvres'] . " jours ouvrés → " . $nombreSemaines . " semaine(s) pour graphiques');</script>";
 
-        // ÉTAPE B : Génération des graphiques pour la période sélectionnée
-        echo "<script>console.log('🎨 GÉNÉRATION DES GRAPHIQUES POUR LA PÉRIODE...');</script>";
+        // ÉTAPE B : Génération des graphiques pour la période sélectionnée (moyennes par semaines)
+        echo "<script>console.log('🎨 GÉNÉRATION DES GRAPHIQUES PAR SEMAINES POUR LA PÉRIODE...');</script>";
         $chartPaths = $this->graphGenerator->generatePeriodCharts($periodData['graphiquesData']);
-        echo "<script>console.log('✓ Graphiques générés: " . count($chartPaths) . " fichiers');</script>";
+        echo "<script>console.log('✓ Graphiques par semaines générés: " . count($chartPaths) . " fichiers');</script>";
 
         return [
             'periodData' => $periodData,
@@ -207,11 +209,11 @@ class ChargeController {
         $diffDays = ceil($diffTime / (24 * 60 * 60)) + 1;
 
         if ($diffDays > 180) {
-            echo "<script>console.log('⚠️ AVERTISSEMENT: Période très longue (" . $diffDays . " jours)');</script>";
+            echo "<script>console.log('⚠️ AVERTISSEMENT: Période très longue (" . $diffDays . " jours) → sera affichée par semaines');</script>";
             // On pourrait ajouter une limitation ici si nécessaire
         }
 
-        echo "<script>console.log('✅ Dates validées: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . " (" . $diffDays . " jours)');</script>";
+        echo "<script>console.log('✅ Dates validées: " . addslashes($dateDebut) . " → " . addslashes($dateFin) . " (" . $diffDays . " jours) → affichage par semaines');</script>";
 
         return [
             'success' => true,
@@ -297,16 +299,20 @@ class ChargeController {
 
             // Estimation approximative des jours ouvrés (5/7 des jours)
             $estimatedWorkingDays = floor($totalDays * 5 / 7);
+            // 🆕 Estimation du nombre de semaines pour affichage
+            $estimatedWeeks = ceil($estimatedWorkingDays / 5);
 
             return [
                 'total_days' => $totalDays,
                 'estimated_working_days' => $estimatedWorkingDays,
+                'estimated_weeks' => $estimatedWeeks, // 🆕 Nouveau
                 'period_length' => $totalDays <= 7 ? 'courte' : ($totalDays <= 30 ? 'moyenne' : 'longue')
             ];
         } catch (\Exception $e) {
             return [
                 'total_days' => 0,
                 'estimated_working_days' => 0,
+                'estimated_weeks' => 0, // 🆕 Nouveau
                 'period_length' => 'invalide'
             ];
         }
