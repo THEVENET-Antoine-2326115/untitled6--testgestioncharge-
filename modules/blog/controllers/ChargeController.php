@@ -189,18 +189,17 @@ class ChargeController {
             ];
         }
 
-        // Validation : les dates doivent être dans la plage disponible
+        // 🆕 VALIDATION ASSOUPLIE : Permettre des périodes plus larges que les données disponibles
+        // On affiche simplement un avertissement informatif, mais on n'empêche pas la sélection
         if ($dateRange['has_data']) {
             $rangeMinObj = new \DateTime($dateRange['date_min']);
             $rangeMaxObj = new \DateTime($dateRange['date_max']);
 
-            if ($debutObj < $rangeMinObj || $finObj > $rangeMaxObj) {
-                return [
-                    'success' => false,
-                    'message' => "La période sélectionnée doit être comprise entre " .
-                        $dateRange['date_min_formatted'] . " et " . $dateRange['date_max_formatted'] .
-                        " (plage des données disponibles)."
-                ];
+            $isOutsideRange = ($debutObj < $rangeMinObj || $finObj > $rangeMaxObj);
+
+            if ($isOutsideRange) {
+                echo "<script>console.log('ℹ️ INFO: Période sélectionnée dépasse les données disponibles (" . addslashes($dateRange['date_min_formatted']) . " - " . addslashes($dateRange['date_max_formatted']) . "). Les jours sans données apparaîtront vides.');</script>";
+                // Ne pas retourner d'erreur, juste informer
             }
         }
 

@@ -6,8 +6,8 @@ namespace modules\blog\views;
  *
  * Cette classe gère l'affichage de l'analyse de charge avec sélection libre de période.
  *
- * VERSION REFACTORISÉE : Sélection libre date début → date fin
- * Suppression du système de dropdown de semaines prédéfinies
+ * VERSION REFACTORISÉE : Sélection libre date début → date fin avec affichage par semaines
+ * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
  */
 class ChargeView {
     /**
@@ -47,12 +47,12 @@ class ChargeView {
     }
 
     /**
-     * 🆕 Affiche l'analyse de charge avec sélecteur libre de période
+     * 🆕 Affiche l'analyse de charge avec sélecteur libre de période (moyennes par semaines)
      *
      * @param array $userInfo Informations de l'utilisateur
      * @param string $fileName Nom du fichier Excel
      * @param array $resultats Résultats de l'analyse de charge (pour récapitulatif global)
-     * @param array $periodData Données de la période sélectionnée (nouvelles données)
+     * @param array $periodData Données de la période sélectionnée (nouvelles données par semaines)
      * @param array $chartPaths Chemins des images de graphiques générées
      * @param array $dateRange Plage de dates disponibles dans les données
      * @return string Le contenu HTML généré
@@ -116,13 +116,20 @@ class ChargeView {
                                            id="date_debut"
                                            name="date_debut"
                                            value="<?php echo htmlspecialchars($dateDebut); ?>"
+                                           class="date-input"
+                                           tabindex="1"
                                         <?php if (!empty($dateRange['date_min'])): ?>
-                                            min="<?php echo htmlspecialchars($dateRange['date_min']); ?>"
+                                            data-suggested-min="<?php echo htmlspecialchars($dateRange['date_min']); ?>"
                                         <?php endif; ?>
                                         <?php if (!empty($dateRange['date_max'])): ?>
-                                            max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
+                                            data-suggested-max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
                                         <?php endif; ?>
                                            required>
+                                    <div class="date-info">
+                                        <?php if (!empty($dateRange) && $dateRange['has_data']): ?>
+                                            <small>💡 Données disponibles : <?php echo htmlspecialchars($dateRange['date_min_formatted']); ?> - <?php echo htmlspecialchars($dateRange['date_max_formatted']); ?></small>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
@@ -131,17 +138,22 @@ class ChargeView {
                                            id="date_fin"
                                            name="date_fin"
                                            value="<?php echo htmlspecialchars($dateFin); ?>"
+                                           class="date-input"
+                                           tabindex="2"
                                         <?php if (!empty($dateRange['date_min'])): ?>
-                                            min="<?php echo htmlspecialchars($dateRange['date_min']); ?>"
+                                            data-suggested-min="<?php echo htmlspecialchars($dateRange['date_min']); ?>"
                                         <?php endif; ?>
                                         <?php if (!empty($dateRange['date_max'])): ?>
-                                            max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
+                                            data-suggested-max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
                                         <?php endif; ?>
                                            required>
+                                    <div class="date-info">
+                                        <small>✅ Vous pouvez sélectionner n'importe quelle période</small>
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
-                                    <button type="submit" class="btn-analyze-period">
+                                    <button type="submit" class="btn-analyze-period" tabindex="3">
                                         🔄 Analyser cette période
                                     </button>
                                 </div>
@@ -178,12 +190,12 @@ class ChargeView {
                 <!-- Section des graphiques pour la période sélectionnée -->
                 <?php if (!empty($periodData) && !empty($chartPaths)): ?>
                     <div class="graphiques-container">
-                        <h2>Évolution de la charge par jour - Période sélectionnée</h2>
+                        <h2>Évolution de la charge par semaine - Période sélectionnée</h2>
 
                         <div class="period-chart-info">
-                            <p><strong>📅 Affichage :</strong> Charge quotidienne pour la période sélectionnée</p>
-                            <p><strong>📊 Axe X :</strong> Jours ouvrés de la période (hors weekends)</p>
-                            <p><strong>📈 Axe Y :</strong> Nombre de personnes</p>
+                            <p><strong>📅 Affichage :</strong> Moyennes de charge par semaine pour la période sélectionnée</p>
+                            <p><strong>📊 Axe X :</strong> Semaines de la période (format : début-fin de semaine)</p>
+                            <p><strong>📈 Axe Y :</strong> Moyenne de personnes par semaine (somme ÷ 5 jours)</p>
                             <p><strong>↔️ Navigation :</strong> Défilement horizontal disponible pour les longues périodes</p>
                         </div>
 
@@ -208,11 +220,11 @@ class ChargeView {
                             <div class="charts-content">
                                 <!-- GRAPHIQUE PRODUCTION (affiché par défaut) -->
                                 <div id="chart-production" class="graphique-section chart-content">
-                                    <h3>Production - Charge par jour</h3>
+                                    <h3>Production - Moyennes par semaine</h3>
                                     <?php if (!empty($chartPaths['production'])): ?>
                                         <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['production']); ?>"
-                                             alt="Graphique charge Production par jour" class="chart-image">
-                                        <p class="chart-description">Répartition quotidienne : Chaudronnerie, Soudure et Contrôle</p>
+                                             alt="Graphique charge Production par semaine" class="chart-image">
+                                        <p class="chart-description">Moyennes hebdomadaires : Chaudronnerie, Soudure et Contrôle</p>
                                     <?php else: ?>
                                         <div class="chart-placeholder">
                                             <p>Aucune donnée de production pour cette période</p>
@@ -223,11 +235,11 @@ class ChargeView {
 
                                 <!-- GRAPHIQUE ÉTUDE (masqué par défaut) -->
                                 <div id="chart-etude" class="graphique-section chart-content hidden">
-                                    <h3>Étude - Charge par jour</h3>
+                                    <h3>Étude - Moyennes par semaine</h3>
                                     <?php if (!empty($chartPaths['etude'])): ?>
                                         <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['etude']); ?>"
-                                             alt="Graphique charge Étude par jour" class="chart-image">
-                                        <p class="chart-description">Répartition quotidienne : Calcul et Projet</p>
+                                             alt="Graphique charge Étude par semaine" class="chart-image">
+                                        <p class="chart-description">Moyennes hebdomadaires : Calcul et Projet</p>
                                     <?php else: ?>
                                         <div class="chart-placeholder">
                                             <p>Aucune donnée d'étude pour cette période</p>
@@ -238,11 +250,11 @@ class ChargeView {
 
                                 <!-- GRAPHIQUE MÉTHODE (masqué par défaut) -->
                                 <div id="chart-methode" class="graphique-section chart-content hidden">
-                                    <h3>Méthode - Charge par jour</h3>
+                                    <h3>Méthode - Moyennes par semaine</h3>
                                     <?php if (!empty($chartPaths['methode'])): ?>
                                         <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['methode']); ?>"
-                                             alt="Graphique charge Méthode par jour" class="chart-image">
-                                        <p class="chart-description">Répartition quotidienne : Méthode</p>
+                                             alt="Graphique charge Méthode par semaine" class="chart-image">
+                                        <p class="chart-description">Moyennes hebdomadaires : Méthode</p>
                                     <?php else: ?>
                                         <div class="chart-placeholder">
                                             <p>Aucune donnée de méthode pour cette période</p>
@@ -253,11 +265,11 @@ class ChargeView {
 
                                 <!-- GRAPHIQUE QUALITÉ (masqué par défaut) -->
                                 <div id="chart-qualite" class="graphique-section chart-content hidden">
-                                    <h3>Qualité - Charge par jour</h3>
+                                    <h3>Qualité - Moyennes par semaine</h3>
                                     <?php if (!empty($chartPaths['qualite'])): ?>
                                         <img src="_assets/images/<?php echo htmlspecialchars($chartPaths['qualite']); ?>"
-                                             alt="Graphique charge Qualité par jour" class="chart-image">
-                                        <p class="chart-description">Répartition quotidienne : Qualité et Qualité Spécialisée</p>
+                                             alt="Graphique charge Qualité par semaine" class="chart-image">
+                                        <p class="chart-description">Moyennes hebdomadaires : Qualité et Qualité Spécialisée</p>
                                     <?php else: ?>
                                         <div class="chart-placeholder">
                                             <p>Aucune donnée de qualité pour cette période</p>
@@ -273,6 +285,7 @@ class ChargeView {
                     <div class="no-period-message">
                         <h3>📅 Sélectionnez une période pour visualiser les graphiques</h3>
                         <p>Choisissez une date de début et une date de fin, puis cliquez sur "Analyser cette période".</p>
+                        <p><small>Les graphiques afficheront les moyennes par semaine (somme des charges ÷ 5 jours).</small></p>
                     </div>
                 <?php endif; ?>
 
@@ -333,7 +346,7 @@ class ChargeView {
                         }
                     }
 
-                    // VALIDATION TEMPS RÉEL DES DATES
+                    // VALIDATION TEMPS RÉEL DES DATES (Version assouplie)
                     function updatePeriodInfo() {
                         const dateDebut = document.getElementById('date_debut').value;
                         const dateFin = document.getElementById('date_fin').value;
@@ -352,41 +365,136 @@ class ChargeView {
                             const diffTime = Math.abs(fin - debut);
                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
                             const workingDaysApprox = Math.floor(diffDays * 5/7); // Approximation jours ouvrés
+                            const weeksApprox = Math.ceil(workingDaysApprox / 5); // Approximation semaines
+
+                            // 🆕 Vérification si la période dépasse les données disponibles
+                            <?php if (!empty($dateRange) && $dateRange['has_data']): ?>
+                            const dataMinDate = new Date('<?php echo $dateRange['date_min']; ?>');
+                            const dataMaxDate = new Date('<?php echo $dateRange['date_max']; ?>');
+                            const isOutsideRange = (debut < dataMinDate || fin > dataMaxDate);
+
+
+                            <?php else: ?>
+                            let warningText = '';
+                            <?php endif; ?>
 
                             summaryElement.innerHTML = `
                                 <span class="period-preview">
                                     📅 Période à analyser : ${debut.toLocaleDateString('fr-FR')} → ${fin.toLocaleDateString('fr-FR')}
-                                    (≈ ${workingDaysApprox} jours ouvrés)
+                                    (≈ ${workingDaysApprox} jours ouvrés, ≈ ${weeksApprox} semaine(s))
                                 </span>
+                                ${warningText}
                             `;
                         }
                     }
 
                     // Initialisation au chargement de la page
                     document.addEventListener('DOMContentLoaded', function() {
-                        console.log('Page chargée - Initialisation des graphiques et validation dates');
+                        console.log('Page chargée - Initialisation des graphiques par semaines et validation dates');
+
+                        // 🛠️ DEBUGGING DES CALENDRIERS DE DATE
+                        const dateDebut = document.getElementById('date_debut');
+                        const dateFin = document.getElementById('date_fin');
+
+                        console.log('Elements trouvés:', {
+                            dateDebut: dateDebut ? 'OUI' : 'NON',
+                            dateFin: dateFin ? 'OUI' : 'NON'
+                        });
+
+                        if (dateDebut) {
+                            console.log('Date début - valeur:', dateDebut.value);
+                            console.log('Date début - attributs:', {
+                                type: dateDebut.type,
+                                disabled: dateDebut.disabled,
+                                readonly: dateDebut.readOnly,
+                                style: dateDebut.style.cssText
+                            });
+
+                            // Test d'interaction
+                            dateDebut.addEventListener('click', function(e) {
+                                console.log('✅ Clic détecté sur date début');
+                            });
+
+                            dateDebut.addEventListener('change', function(e) {
+                                console.log('✅ Changement détecté sur date début:', e.target.value);
+                                updatePeriodInfo();
+                            });
+
+                            dateDebut.addEventListener('input', function(e) {
+                                console.log('✅ Input détecté sur date début:', e.target.value);
+                            });
+                        }
+
+                        if (dateFin) {
+                            console.log('Date fin - valeur:', dateFin.value);
+
+                            dateFin.addEventListener('click', function(e) {
+                                console.log('✅ Clic détecté sur date fin');
+                            });
+
+                            dateFin.addEventListener('change', function(e) {
+                                console.log('✅ Changement détecté sur date fin:', e.target.value);
+                                updatePeriodInfo();
+                            });
+
+                            dateFin.addEventListener('input', function(e) {
+                                console.log('✅ Input détecté sur date fin:', e.target.value);
+                            });
+                        }
+
+                        // Test de support navigateur
+                        const testInput = document.createElement('input');
+                        testInput.type = 'date';
+                        const supportsDate = testInput.type === 'date';
+                        console.log('Support navigateur pour input[type="date"]:', supportsDate);
+
+                        if (!supportsDate) {
+                            console.warn('⚠️ Le navigateur ne supporte pas input[type="date"]');
+                            // Fallback pour vieux navigateurs
+                            if (dateDebut) dateDebut.type = 'text';
+                            if (dateFin) dateFin.type = 'text';
+                        }
 
                         // Afficher Production par défaut
                         showChart('production');
 
-                        // Validation temps réel des dates
-                        const dateDebut = document.getElementById('date_debut');
-                        const dateFin = document.getElementById('date_fin');
-
+                        // Validation initiale
                         if (dateDebut && dateFin) {
-                            dateDebut.addEventListener('change', updatePeriodInfo);
-                            dateFin.addEventListener('change', updatePeriodInfo);
-
-                            // Validation initiale
                             updatePeriodInfo();
                         }
+
+                        // 🛠️ FORCER L'INTERACTION SUR LES CALENDRIERS
+                        setTimeout(function() {
+                            if (dateDebut && dateFin) {
+                                // Forcer focus/blur pour activer les calendriers
+                                dateDebut.focus();
+                                dateDebut.blur();
+                                dateFin.focus();
+                                dateFin.blur();
+                                console.log('🔄 Focus/blur forcé sur les calendriers');
+                            }
+                        }, 500);
 
                         // Validation du formulaire avant soumission
                         const periodForm = document.getElementById('periodForm');
                         if (periodForm) {
                             periodForm.addEventListener('submit', function(e) {
+                                console.log('📤 Soumission formulaire');
+
+                                if (!dateDebut || !dateFin) {
+                                    console.error('❌ Elements date non trouvés');
+                                    return;
+                                }
+
                                 const debut = new Date(dateDebut.value);
                                 const fin = new Date(dateFin.value);
+
+                                console.log('Dates soumises:', {
+                                    debut: dateDebut.value,
+                                    fin: dateFin.value,
+                                    debutValid: !isNaN(debut),
+                                    finValid: !isNaN(fin)
+                                });
 
                                 if (debut > fin) {
                                     alert('⚠️ La date de début doit être antérieure à la date de fin.');
@@ -401,7 +509,7 @@ class ChargeView {
                                 if (diffDays > 90) {
                                     const confirm = window.confirm(
                                         `📊 Vous analysez une période de ${diffDays} jours.\n\n` +
-                                        `Les graphiques seront très larges et peuvent prendre du temps à générer.\n\n` +
+                                        `Les graphiques seront organisés par semaines avec moyennes calculées.\n\n` +
                                         `Voulez-vous continuer ?`
                                     );
                                     if (!confirm) {
@@ -468,12 +576,39 @@ class ChargeView {
                 font-size: 16px;
                 cursor: pointer;
                 transition: border-color 0.3s;
+                position: relative;
+                z-index: 1;
+                pointer-events: auto;
             }
 
             .date-inputs .form-group input[type="date"]:focus {
                 outline: none;
                 border-color: #2196F3;
                 box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            }
+
+            /* Force l'affichage du calendrier */
+            .date-inputs .form-group input[type="date"]::-webkit-calendar-picker-indicator {
+                background: transparent;
+                bottom: 0;
+                color: transparent;
+                cursor: pointer;
+                height: auto;
+                left: 0;
+                position: absolute;
+                right: 0;
+                top: 0;
+                width: auto;
+                pointer-events: auto;
+            }
+
+            .date-info {
+                margin-top: 5px;
+            }
+
+            .date-info small {
+                color: #666;
+                font-size: 12px;
             }
 
             .btn-analyze-period {
@@ -536,6 +671,12 @@ class ChargeView {
             .error-text {
                 color: #f44336 !important;
                 font-weight: bold;
+            }
+
+            .info-text {
+                color: #2196F3 !important;
+                font-weight: 500;
+                font-size: 14px;
             }
 
             /* 🆕 STYLES POUR LE DÉFILEMENT HORIZONTAL */
