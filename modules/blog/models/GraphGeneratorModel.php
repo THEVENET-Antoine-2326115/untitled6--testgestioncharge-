@@ -13,6 +13,7 @@ use Amenadiel\JpGraph\Plot\BarPlot;
  * VERSION REFACTORISÉE : Génération pour période libre avec affichage par semaines
  * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
  * Les graphiques vides sont affichés au lieu d'images d'erreur
+ * VERSION MISE À JOUR : Ajout CHAUDQ et SOUDQ avec couleurs distinctes
  */
 class GraphGeneratorModel {
 
@@ -181,7 +182,8 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère le graphique Production pour une période libre (par semaines)
+     * 🔄 MISE À JOUR : Génère le graphique Production pour une période libre (par semaines)
+     * ✅ NOUVEAU : Ajout CHAUDQ et SOUDQ avec couleurs bien distinctes
      *
      * @param array $data Données des graphiques de la période (moyennes par semaines)
      * @param int $chartWidth Largeur calculée du graphique
@@ -189,29 +191,37 @@ class GraphGeneratorModel {
      */
     private function generatePeriodProductionChartWeekly($data, $chartWidth) {
         $this->console_log("=== GÉNÉRATION GRAPHIQUE PRODUCTION PÉRIODE LIBRE (SEMAINES) ===");
+        $this->console_log("🔄 MISE À JOUR: Gestion 5 processus avec couleurs distinctes");
 
         $filename = 'production_weekly_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
-        // Données des processus (moyennes par semaines)
-        $chaudron_data = $data['production']['CHAUDNQ'] ?? [];
-        $soudure_data = $data['production']['SOUDNQ'] ?? [];
-        $ct_data = $data['production']['CT'] ?? [];
+        // 🔄 RÉCUPÉRATION 5 DATASETS au lieu de 3
+        $chaudnq_data = $data['production']['CHAUDNQ'] ?? [];  // Chaudronnerie Non Qualifiée
+        $chaudq_data = $data['production']['CHAUDQ'] ?? [];    // ✅ NOUVEAU: Chaudronnerie Qualifiée
+        $soudnq_data = $data['production']['SOUDNQ'] ?? [];    // Soudure Non Qualifiée
+        $soudq_data = $data['production']['SOUDQ'] ?? [];      // ✅ NOUVEAU: Soudure Qualifiée
+        $ct_data = $data['production']['CT'] ?? [];            // Contrôle
 
         // Si pas de données, créer des arrays vides avec la bonne taille
         $nombreSemaines = count($data['semaines_labels'] ?? []);
-        if (empty($chaudron_data)) $chaudron_data = array_fill(0, max(1, $nombreSemaines), 0);
-        if (empty($soudure_data)) $soudure_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($chaudnq_data)) $chaudnq_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($chaudq_data)) $chaudq_data = array_fill(0, max(1, $nombreSemaines), 0);      // ✅ NOUVEAU
+        if (empty($soudnq_data)) $soudnq_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($soudq_data)) $soudq_data = array_fill(0, max(1, $nombreSemaines), 0);        // ✅ NOUVEAU
         if (empty($ct_data)) $ct_data = array_fill(0, max(1, $nombreSemaines), 0);
 
-        $this->console_log("Chaudronnerie (" . count($chaudron_data) . " semaines): " . json_encode(array_slice($chaudron_data, 0, 3)) . (count($chaudron_data) > 3 ? '...' : ''));
-        $this->console_log("Soudure (" . count($soudure_data) . " semaines): " . json_encode(array_slice($soudure_data, 0, 3)) . (count($soudure_data) > 3 ? '...' : ''));
+        // 🔄 LOGGING ÉTENDU pour les 5 processus
+        $this->console_log("Chaudronnerie NQ (" . count($chaudnq_data) . " semaines): " . json_encode(array_slice($chaudnq_data, 0, 3)) . (count($chaudnq_data) > 3 ? '...' : ''));
+        $this->console_log("✅ Chaudronnerie Q (" . count($chaudq_data) . " semaines): " . json_encode(array_slice($chaudq_data, 0, 3)) . (count($chaudq_data) > 3 ? '...' : ''));
+        $this->console_log("Soudure NQ (" . count($soudnq_data) . " semaines): " . json_encode(array_slice($soudnq_data, 0, 3)) . (count($soudnq_data) > 3 ? '...' : ''));
+        $this->console_log("✅ Soudure Q (" . count($soudq_data) . " semaines): " . json_encode(array_slice($soudq_data, 0, 3)) . (count($soudq_data) > 3 ? '...' : ''));
         $this->console_log("CT (" . count($ct_data) . " semaines): " . json_encode(array_slice($ct_data, 0, 3)) . (count($ct_data) > 3 ? '...' : ''));
 
         try {
-            // Calculer la valeur maximale des données pour ajuster l'axe Y
+            // 🔄 CALCUL VALEUR MAX avec les 5 datasets
             $maxValue = 0;
-            foreach ([$chaudron_data, $soudure_data, $ct_data] as $dataset) {
+            foreach ([$chaudnq_data, $chaudq_data, $soudnq_data, $soudq_data, $ct_data] as $dataset) {
                 if (!empty($dataset)) {
                     $maxValue = max($maxValue, max($dataset));
                 }
@@ -219,7 +229,7 @@ class GraphGeneratorModel {
 
             // Définir l'échelle Y avec minimum de 3
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
-            $this->console_log("Valeur max moyennes: " . $maxValue . " → Axe Y fixé à: " . $yMax);
+            $this->console_log("Valeur max moyennes (5 processus): " . $maxValue . " → Axe Y fixé à: " . $yMax);
 
             // 🆕 Créer le graphique avec largeur dynamique
             $graph = new Graph($chartWidth, self::CHART_HEIGHT);
@@ -247,28 +257,47 @@ class GraphGeneratorModel {
                 $graph->xaxis->SetLabelAngle(45); // Incliné pour peu de semaines
             }
 
-            // Créer les barres (groupées)
+            // 🎨 CRÉATION DES 5 BARRES AVEC COULEURS BIEN DISTINCTES
             $barplots = [];
 
-            $barplot1 = new BarPlot($chaudron_data);
-            $barplot1->SetColor('red');
-            $barplot1->SetFillColor('red');
-            $barplot1->SetLegend('Chaudronnerie');
+            // 🔴 Chaudronnerie Non Qualifiée - ROUGE
+            $barplot1 = new BarPlot($chaudnq_data);
+            $barplot1->SetColor('#D32F2F');       // Rouge foncé
+            $barplot1->SetFillColor('#D32F2F');
+            $barplot1->SetLegend('Chaudronnerie NQ');
             $barplots[] = $barplot1;
 
-            $barplot2 = new BarPlot($soudure_data);
-            $barplot2->SetColor('blue');
-            $barplot2->SetFillColor('blue');
-            $barplot2->SetLegend('Soudure');
+            // 🟠 Chaudronnerie Qualifiée - ORANGE (bien distinct du rouge)
+            $barplot2 = new BarPlot($chaudq_data);
+            $barplot2->SetColor('#FF9800');       // Orange vif
+            $barplot2->SetFillColor('#FF9800');
+            $barplot2->SetLegend('Chaudronnerie Q');
             $barplots[] = $barplot2;
 
-            $barplot3 = new BarPlot($ct_data);
-            $barplot3->SetColor('green');
-            $barplot3->SetFillColor('green');
-            $barplot3->SetLegend('Contrôle');
+            // 🔵 Soudure Non Qualifiée - BLEU
+            $barplot3 = new BarPlot($soudnq_data);
+            $barplot3->SetColor('#1976D2');       // Bleu foncé
+            $barplot3->SetFillColor('#1976D2');
+            $barplot3->SetLegend('Soudure NQ');
             $barplots[] = $barplot3;
 
-            // 🆕 Grouper les barres côte à côte pour chaque semaine
+            // 🟣 Soudure Qualifiée - VIOLET (bien distinct du bleu)
+            $barplot4 = new BarPlot($soudq_data);
+            $barplot4->SetColor('#9C27B0');       // Violet/Purple
+            $barplot4->SetFillColor('#9C27B0');
+            $barplot4->SetLegend('Soudure Q');
+            $barplots[] = $barplot4;
+
+            // 🟢 Contrôle - VERT
+            $barplot5 = new BarPlot($ct_data);
+            $barplot5->SetColor('#4CAF50');       // Vert
+            $barplot5->SetFillColor('#4CAF50');
+            $barplot5->SetLegend('Contrôle');
+            $barplots[] = $barplot5;
+
+            $this->console_log("🎨 5 barres créées avec couleurs distinctes: Rouge, Orange, Bleu, Violet, Vert");
+
+            // 🔄 GROUPER LES 5 BARRES côte à côte pour chaque semaine
             if (count($barplots) > 1) {
                 $groupedBarPlot = new \Amenadiel\JpGraph\Plot\GroupBarPlot($barplots);
                 $graph->Add($groupedBarPlot);
@@ -281,7 +310,7 @@ class GraphGeneratorModel {
 
             // Sauvegarder l'image
             $graph->Stroke($filepath);
-            $this->console_log("Graphique production période libre par semaines sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ")");
+            $this->console_log("✅ Graphique production période libre par semaines sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ") avec 5 processus");
             return $filename;
 
         } catch (\Exception $e) {

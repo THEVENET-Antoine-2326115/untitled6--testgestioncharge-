@@ -197,8 +197,10 @@ class AjoutChargeModel {
      */
     public function getProcessusParDefaut() {
         return [
-            'CHAUDNQ' => 'Chaudronnerie',
-            'SOUDNQ' => 'Soudure',
+            'CHAUDNQ' => 'Chaudronnerie Non Qualifiée',
+            'CHAUDQ' => 'Chaudronnerie Qualifiée',
+            'SOUDNQ' => 'Soudure Non Qualifiée',
+            'SOUDQ' => 'Soudure Qualifiée',
             'CT' => 'Contrôle',
             'CALC' => 'Calcul',
             'PROJ' => 'Projet',

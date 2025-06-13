@@ -584,4 +584,25 @@
         padding: 15px;
         min-width: auto;
     }
+
+    .btn-clear-database {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        white-space: nowrap;
+        min-width: 200px;
+    }
+
+    .btn-clear-database:hover {
+        background-color: #d32f2f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
 }

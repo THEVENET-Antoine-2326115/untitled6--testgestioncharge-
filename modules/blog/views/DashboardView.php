@@ -6,6 +6,7 @@ namespace modules\blog\views;
  *
  * Cette classe gère l'affichage du tableau de bord.
  * Adaptée pour les nouvelles méthodes du contrôleur refactorisé.
+ * VERSION MISE À JOUR : Réorganisation des boutons d'action
  */
 class DashboardView {
     /**
@@ -82,11 +83,12 @@ class DashboardView {
 
     /**
      * Génère le HTML du tableau de bord (méthode commune)
+     * 🔄 MISE À JOUR : Suppression affichage données et réorganisation boutons
      *
      * @param array $userInfo Informations de l'utilisateur
      * @param array $dashboardData Données du dashboard
      * @param array|null $result Résultat d'opération (optionnel)
-     * @param bool $showAll Afficher toutes les données
+     * @param bool $showAll Afficher toutes les données (OBSOLÈTE)
      * @return string Le contenu HTML généré
      */
     private function renderDashboard($userInfo, $dashboardData, $result = null, $showAll = false) {
@@ -111,7 +113,7 @@ class DashboardView {
 
         <div class="container">
             <div class="card">
-                <h1>gestion des données d’entrée</h1>
+                <h1>gestion des données d'entrée</h1>
                 <p>Bienvenue <?php echo htmlspecialchars($userInfo['nom']); ?></p>
 
                 <div class="menu-items">
@@ -141,8 +143,6 @@ class DashboardView {
                             <?php echo nl2br(htmlspecialchars($result['message'])); ?>
                         </div>
                     <?php endif; ?>
-
-
 
                     <!-- Informations sur les fichiers -->
                     <?php if (isset($dashboardData['files_info'])): ?>
@@ -199,12 +199,12 @@ class DashboardView {
                         </div>
                     <?php endif; ?>
 
-                    <!-- 🆕 NOUVELLE SECTION : Conversion par numéro d'affaire -->
+                    <!-- 🔄 SECTION MISE À JOUR : Conversion + Suppression + Vidage -->
                     <div class="convert-by-number-section">
-                        <h3>🎯 Conversion sélective par numéro d'affaire</h3>
+                        <h3>🎯 Gestion par numéro d'affaire</h3>
                         <div class="convert-form-container">
                             <p class="convert-description">
-                                Convertissez un fichier MPP spécifique en saisissant son numéro d'affaire.<br>
+                                Convertissez un fichier MPP spécifique, supprimez un fichier converti, ou videz complètement la base de données.<br>
                                 <small>Format attendu : <code>24-09_0009</code> (pour un fichier nommé "AFF24-09_0009 planning en cours.mpp")</small>
                             </p>
 
@@ -217,8 +217,8 @@ class DashboardView {
                                                name="numero_affaire"
                                                placeholder="Ex: 24-09_0009"
                                                pattern="[0-9]{2}-[0-9]{2}_[0-9]{4}"
-                                               title="Format attendu : XX-XX_XXXX (ex: 24-09_0009)"
-                                               required>
+                                               title="Format attendu : XX-XX_XXXX (ex: 24-09_0009)">
+                                        <small class="input-note">*(Requis uniquement pour conversion/suppression ciblée)</small>
                                     </div>
                                     <div class="form-group buttons-group">
                                         <button type="submit" class="btn-convert-selective" onclick="setConvertAction('convert_by_number')">
@@ -227,6 +227,10 @@ class DashboardView {
                                         <button type="submit" class="btn-delete-selective" onclick="setConvertAction('delete_by_number')">
                                             🗑️ Supprimer le fichier converti
                                         </button>
+                                        <!-- 🆕 BOUTON VIDAGE DÉPLACÉ ICI -->
+                                        <button type="button" class="btn-clear-database" onclick="clearDatabase()">
+                                            💥 Vider la base de données
+                                        </button>
                                     </div>
                                 </div>
                                 <input type="hidden" name="action" id="convertActionField" value="convert_by_number">
@@ -234,133 +238,11 @@ class DashboardView {
                         </div>
                     </div>
 
-                    <!-- Boutons d'action généraux -->
-                    <div class="action-buttons">
-                        <a href="index.php?subaction=import" class="btn-import" onclick="return confirm('Importer les données de la base vers la mémoire ?')">
-                            <button>Importer les données</button>
-                        </a>
-                        <a href="index.php?subaction=clear_data" class="btn-clear" onclick="return confirm('Attention! Cette action supprimera toutes les données. Continuer?')">
-                            <button>Vider la base de données</button>
-                        </a>
-                        <?php if (isset($dashboardData['summary']) && $dashboardData['summary']['total_entries'] > 0): ?>
-                            <a href="index.php?subaction=show_all_files" class="btn view-all">
-                                <button>Voir toutes les données</button>
-                            </a>
-                        <?php endif; ?>
-                    </div>
+                    <!-- 🗑️ SECTION SUPPRIMÉE : action-buttons (importer, voir toutes données, vider base) -->
                 </div>
 
-                <!-- Affichage des données -->
-                <div class="excel-container">
-                    <?php if (isset($dashboardData['display_data']) && !empty($dashboardData['display_data'])): ?>
-                        <h2><?php echo htmlspecialchars($dashboardData['display_title'] ?? 'Données'); ?></h2>
-                        <button class="toggle-button" id="toggleData">
-                            <?php echo $showAll ? 'Masquer les données' : 'Afficher les données brutes'; ?>
-                        </button>
+                <!-- 🗑️ SECTION SUPPRIMÉE : Affichage des données brutes -->
 
-                        <div id="rawDataContainer" class="<?php echo $showAll ? '' : 'hidden'; ?>">
-                            <?php foreach ($dashboardData['display_data'] as $sheetName => $sheetData): ?>
-                                <div class="sheet">
-                                    <h3>Données: <?php echo htmlspecialchars($sheetName); ?></h3>
-
-                                    <?php if (empty($sheetData['rows'])): ?>
-                                        <p>Aucune donnée dans cette section.</p>
-                                    <?php else: ?>
-                                        <div class="table-container">
-                                            <table>
-                                                <thead>
-                                                <tr>
-                                                    <?php foreach ($sheetData['headers'] as $header): ?>
-                                                        <th><?php echo htmlspecialchars($header); ?></th>
-                                                    <?php endforeach; ?>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <?php foreach ($sheetData['rows'] as $row): ?>
-                                                    <tr>
-                                                        <?php foreach ($sheetData['headers'] as $header): ?>
-                                                            <td>
-                                                                <?php
-                                                                $value = $row[$header] ?? '';
-                                                                echo is_string($value) ? htmlspecialchars($value) : $value;
-                                                                ?>
-                                                            </td>
-                                                        <?php endforeach; ?>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <h2>Aucune donnée à afficher</h2>
-                        <p>Convertissez d'abord des fichiers MPP ou importez des données existantes.</p>
-                    <?php endif; ?>
-
-                    <script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const toggleButton = document.getElementById('toggleData');
-                            const dataContainer = document.getElementById('rawDataContainer');
-
-                            if (toggleButton && dataContainer) {
-                                toggleButton.addEventListener('click', function() {
-                                    if (dataContainer.classList.contains('hidden')) {
-                                        dataContainer.classList.remove('hidden');
-                                        toggleButton.textContent = 'Masquer les données brutes';
-                                    } else {
-                                        dataContainer.classList.add('hidden');
-                                        toggleButton.textContent = 'Afficher les données brutes';
-                                    }
-                                });
-                            }
-
-                            // 🆕 Validation du formulaire de conversion
-                            const convertForm = document.getElementById('convertForm');
-                            if (convertForm) {
-                                convertForm.addEventListener('submit', function(e) {
-                                    const numeroAffaire = document.getElementById('numero_affaire').value.trim();
-                                    const action = document.getElementById('convertActionField').value;
-
-                                    if (!numeroAffaire) {
-                                        alert('Veuillez saisir un numéro d\'affaire.');
-                                        e.preventDefault();
-                                        return;
-                                    }
-
-                                    // Validation du format
-                                    const formatPattern = /^[0-9]{2}-[0-9]{2}_[0-9]{4}$/;
-                                    if (!formatPattern.test(numeroAffaire)) {
-                                        alert('Format invalide. Utilisez le format XX-XX_XXXX (ex: 24-09_0009)');
-                                        e.preventDefault();
-                                        return;
-                                    }
-
-                                    let confirmMsg = '';
-                                    if (action === 'delete_by_number') {
-                                        confirmMsg = `Supprimer le fichier XLSX converti contenant le numéro d'affaire "${numeroAffaire}" ?\n\n` +
-                                            `Le système recherchera dans le dossier 'converted' et supprimera le fichier correspondant.`;
-                                    } else {
-                                        confirmMsg = `Convertir le fichier avec le numéro d'affaire "${numeroAffaire}" ?\n\n` +
-                                            `Le système recherchera un fichier contenant ce numéro dans le dossier uploads.`;
-                                    }
-
-                                    if (!confirm(confirmMsg)) {
-                                        e.preventDefault();
-                                    }
-                                });
-                            }
-
-                            // 🆕 Fonction pour définir l'action de conversion/suppression
-                            window.setConvertAction = function(action) {
-                                document.getElementById('convertActionField').value = action;
-                                console.log('Action sélectionnée:', action);
-                            };
-                        });
-                    </script>
-                </div>
                 <!-- SECTION AJOUT MANUEL DE CHARGE -->
                 <div class="add-charge-section">
                     <h2>Ajouter ou supprimer une charge manuellement</h2>
@@ -473,10 +355,105 @@ class DashboardView {
                         });
                     </script>
                 </div>
+
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // 🔄 MISE À JOUR : Validation du formulaire de conversion
+                        const convertForm = document.getElementById('convertForm');
+                        if (convertForm) {
+                            convertForm.addEventListener('submit', function(e) {
+                                const action = document.getElementById('convertActionField').value;
+
+                                // Pour le vidage de base, pas besoin de numéro d'affaire
+                                if (action === 'clear_data') {
+                                    return; // Laisser le formulaire se soumettre normalement
+                                }
+
+                                // Pour conversion/suppression, valider le numéro d'affaire
+                                const numeroAffaire = document.getElementById('numero_affaire').value.trim();
+
+                                if (!numeroAffaire) {
+                                    alert('Veuillez saisir un numéro d\'affaire pour cette action.');
+                                    e.preventDefault();
+                                    return;
+                                }
+
+                                // Validation du format
+                                const formatPattern = /^[0-9]{2}-[0-9]{2}_[0-9]{4}$/;
+                                if (!formatPattern.test(numeroAffaire)) {
+                                    alert('Format invalide. Utilisez le format XX-XX_XXXX (ex: 24-09_0009)');
+                                    e.preventDefault();
+                                    return;
+                                }
+
+                                let confirmMsg = '';
+                                if (action === 'delete_by_number') {
+                                    confirmMsg = `Supprimer le fichier XLSX converti contenant le numéro d'affaire "${numeroAffaire}" ?\n\n` +
+                                        `Le système recherchera dans le dossier 'converted' et supprimera le fichier correspondant.`;
+                                } else {
+                                    confirmMsg = `Convertir le fichier avec le numéro d'affaire "${numeroAffaire}" ?\n\n` +
+                                        `Le système recherchera un fichier contenant ce numéro dans le dossier uploads.`;
+                                }
+
+                                if (!confirm(confirmMsg)) {
+                                    e.preventDefault();
+                                }
+                            });
+                        }
+
+                        // 🆕 Fonction pour définir l'action de conversion/suppression
+                        window.setConvertAction = function(action) {
+                            document.getElementById('convertActionField').value = action;
+                            console.log('Action sélectionnée:', action);
+                        };
+
+                        // 🆕 Fonction pour vider la base de données
+                        window.clearDatabase = function() {
+                            const confirmMsg = `⚠️ ATTENTION : Cette action va supprimer TOUTES les données de la base !\n\n` +
+                                `Cette action est irréversible. Êtes-vous absolument sûr de vouloir continuer ?`;
+
+                            if (confirm(confirmMsg)) {
+                                // Deuxième confirmation pour éviter les clics accidentels
+                                const secondConfirm = confirm(`🚨 DERNIÈRE CONFIRMATION 🚨\n\n` +
+                                    `Toutes les données de charge vont être supprimées définitivement.\n\n` +
+                                    `Confirmer le vidage de la base ?`);
+
+                                if (secondConfirm) {
+                                    // Rediriger vers l'action de vidage
+                                    window.location.href = 'index.php?subaction=clear_data';
+                                }
+                            }
+                        };
+                    });
+                </script>
             </div>
 
         </body>
         </html>
+
+        <style>
+            /* 🆕 STYLES POUR LE NOUVEAU BOUTON DE VIDAGE - NOIR */
+            .btn-clear-database {
+                background-color: #333333 !important;  /* Noir avec !important pour forcer */
+                color: white !important;               /* Texte blanc avec !important */
+                border: none !important;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s;
+                white-space: nowrap;
+                min-width: 200px;
+            }
+
+            .btn-clear-database:hover {
+                background-color: #1a1a1a !important; /* Noir plus foncé au hover */
+                color: white !important;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+        </style>
         <?php
         return ob_get_clean();
     }
