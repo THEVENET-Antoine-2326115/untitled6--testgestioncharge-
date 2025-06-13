@@ -12,6 +12,7 @@ use Amenadiel\JpGraph\Plot\BarPlot;
  *
  * VERSION REFACTORISÉE : Génération pour période libre avec affichage par semaines
  * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
+ * Les graphiques vides sont affichés au lieu d'images d'erreur
  */
 class GraphGeneratorModel {
 
@@ -131,43 +132,23 @@ class GraphGeneratorModel {
             $chartWidth = $this->calculateChartWidthWeekly($nombreSemaines);
             $this->console_log("Largeur calculée pour " . $nombreSemaines . " semaines: " . $chartWidth . "px");
 
-            // Vérifier chaque catégorie avant génération
+            // Générer tous les graphiques (même vides)
             $categories = ['production', 'etude', 'methode', 'qualite'];
             foreach ($categories as $cat) {
-                if (isset($periodData[$cat])) {
-                    $totalData = 0;
-                    foreach ($periodData[$cat] as $proc => $data) {
-                        $sum = array_sum($data);
-                        $totalData += $sum;
-                        if ($sum > 0) {
-                            $this->console_log($cat . " - " . $proc . ": " . $sum . " total moyennes période");
-                        }
-                    }
-                    $this->console_log("Total moyennes " . $cat . " pour la période: " . $totalData);
-
-                    if ($totalData > 0) {
-                        $this->console_log("Génération graphique " . $cat . " pour la période (semaines)");
-                        switch ($cat) {
-                            case 'production':
-                                $chartPaths['production'] = $this->generatePeriodProductionChartWeekly($periodData, $chartWidth);
-                                break;
-                            case 'etude':
-                                $chartPaths['etude'] = $this->generatePeriodEtudeChartWeekly($periodData, $chartWidth);
-                                break;
-                            case 'methode':
-                                $chartPaths['methode'] = $this->generatePeriodMethodeChartWeekly($periodData, $chartWidth);
-                                break;
-                            case 'qualite':
-                                $chartPaths['qualite'] = $this->generatePeriodQualiteChartWeekly($periodData, $chartWidth);
-                                break;
-                        }
-                    } else {
-                        $this->console_log("Aucune donnée pour " . $cat . " cette période, graphique non généré");
-                        $chartPaths[$cat] = $this->createErrorImage($cat, 'Aucune donnée disponible pour cette période');
-                    }
-                } else {
-                    $this->console_log("Catégorie " . $cat . " manquante dans les données");
-                    $chartPaths[$cat] = $this->createErrorImage($cat, 'Catégorie manquante');
+                $this->console_log("Génération graphique " . $cat . " pour la période (semaines)");
+                switch ($cat) {
+                    case 'production':
+                        $chartPaths['production'] = $this->generatePeriodProductionChartWeekly($periodData, $chartWidth);
+                        break;
+                    case 'etude':
+                        $chartPaths['etude'] = $this->generatePeriodEtudeChartWeekly($periodData, $chartWidth);
+                        break;
+                    case 'methode':
+                        $chartPaths['methode'] = $this->generatePeriodMethodeChartWeekly($periodData, $chartWidth);
+                        break;
+                    case 'qualite':
+                        $chartPaths['qualite'] = $this->generatePeriodQualiteChartWeekly($periodData, $chartWidth);
+                        break;
                 }
             }
 
@@ -217,15 +198,15 @@ class GraphGeneratorModel {
         $soudure_data = $data['production']['SOUDNQ'] ?? [];
         $ct_data = $data['production']['CT'] ?? [];
 
+        // Si pas de données, créer des arrays vides avec la bonne taille
+        $nombreSemaines = count($data['semaines_labels'] ?? []);
+        if (empty($chaudron_data)) $chaudron_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($soudure_data)) $soudure_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($ct_data)) $ct_data = array_fill(0, max(1, $nombreSemaines), 0);
+
         $this->console_log("Chaudronnerie (" . count($chaudron_data) . " semaines): " . json_encode(array_slice($chaudron_data, 0, 3)) . (count($chaudron_data) > 3 ? '...' : ''));
         $this->console_log("Soudure (" . count($soudure_data) . " semaines): " . json_encode(array_slice($soudure_data, 0, 3)) . (count($soudure_data) > 3 ? '...' : ''));
         $this->console_log("CT (" . count($ct_data) . " semaines): " . json_encode(array_slice($ct_data, 0, 3)) . (count($ct_data) > 3 ? '...' : ''));
-
-        // Vérifier qu'il y a au moins des données
-        if (empty($chaudron_data) && empty($soudure_data) && empty($ct_data)) {
-            $this->console_log("Aucune donnée production, création image vide");
-            return $this->createErrorImage('production', 'Aucune donnée de production cette période');
-        }
 
         try {
             // Calculer la valeur maximale des données pour ajuster l'axe Y
@@ -255,55 +236,37 @@ class GraphGeneratorModel {
             $graph->yaxis->title->SetFont(FF_ARIAL, FS_NORMAL, 12);
 
             // 🆕 Labels de semaines (générés par ChargeModel)
-            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
+            $labels = $data['semaines_labels'] ?? ['Semaine 1'];
+            $graph->xaxis->SetTickLabels($labels);
 
             // Rotation des labels selon le nombre de semaines
-            $nombreSemaines = count($data['semaines_labels'] ?? []);
+            $nombreSemaines = count($labels);
             if ($nombreSemaines > 8) {
                 $graph->xaxis->SetLabelAngle(90); // Vertical pour beaucoup de semaines
             } else {
                 $graph->xaxis->SetLabelAngle(45); // Incliné pour peu de semaines
             }
 
-            $hasData = false;
-
             // Créer les barres (groupées)
             $barplots = [];
 
-            if (!empty($chaudron_data)) {
-                $barplot1 = new BarPlot($chaudron_data);
-                $barplot1->SetColor('red');
-                $barplot1->SetFillColor('red');
-                $barplot1->SetLegend('Chaudronnerie');
-                $barplots[] = $barplot1;
-                $hasData = true;
-                $this->console_log("Barre chaudronnerie ajoutée (période libre, semaines)");
-            }
+            $barplot1 = new BarPlot($chaudron_data);
+            $barplot1->SetColor('red');
+            $barplot1->SetFillColor('red');
+            $barplot1->SetLegend('Chaudronnerie');
+            $barplots[] = $barplot1;
 
-            if (!empty($soudure_data)) {
-                $barplot2 = new BarPlot($soudure_data);
-                $barplot2->SetColor('blue');
-                $barplot2->SetFillColor('blue');
-                $barplot2->SetLegend('Soudure');
-                $barplots[] = $barplot2;
-                $hasData = true;
-                $this->console_log("Barre soudure ajoutée (période libre, semaines)");
-            }
+            $barplot2 = new BarPlot($soudure_data);
+            $barplot2->SetColor('blue');
+            $barplot2->SetFillColor('blue');
+            $barplot2->SetLegend('Soudure');
+            $barplots[] = $barplot2;
 
-            if (!empty($ct_data)) {
-                $barplot3 = new BarPlot($ct_data);
-                $barplot3->SetColor('green');
-                $barplot3->SetFillColor('green');
-                $barplot3->SetLegend('Contrôle');
-                $barplots[] = $barplot3;
-                $hasData = true;
-                $this->console_log("Barre CT ajoutée (période libre, semaines)");
-            }
-
-            if (!$hasData) {
-                $this->console_log("Aucune barre ajoutée, création image d'erreur");
-                return $this->createErrorImage('production', 'Aucune barre de donnée valide');
-            }
+            $barplot3 = new BarPlot($ct_data);
+            $barplot3->SetColor('green');
+            $barplot3->SetFillColor('green');
+            $barplot3->SetLegend('Contrôle');
+            $barplots[] = $barplot3;
 
             // 🆕 Grouper les barres côte à côte pour chaque semaine
             if (count($barplots) > 1) {
@@ -339,9 +302,10 @@ class GraphGeneratorModel {
         $calc_data = $data['etude']['CALC'] ?? [];
         $proj_data = $data['etude']['PROJ'] ?? [];
 
-        if (empty($calc_data) && empty($proj_data)) {
-            return $this->createErrorImage('etude', 'Aucune donnée d\'étude cette période');
-        }
+        // Si pas de données, créer des arrays vides avec la bonne taille
+        $nombreSemaines = count($data['semaines_labels'] ?? []);
+        if (empty($calc_data)) $calc_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($proj_data)) $proj_data = array_fill(0, max(1, $nombreSemaines), 0);
 
         try {
             // Calculer la valeur maximale des données pour ajuster l'axe Y
@@ -364,9 +328,11 @@ class GraphGeneratorModel {
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
             $graph->xaxis->title->Set('Semaines de la période sélectionnée');
             $graph->yaxis->title->Set('Moyenne de personnes par semaine');
-            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
 
-            $nombreSemaines = count($data['semaines_labels'] ?? []);
+            $labels = $data['semaines_labels'] ?? ['Semaine 1'];
+            $graph->xaxis->SetTickLabels($labels);
+
+            $nombreSemaines = count($labels);
             if ($nombreSemaines > 8) {
                 $graph->xaxis->SetLabelAngle(90);
             } else {
@@ -374,29 +340,18 @@ class GraphGeneratorModel {
             }
 
             $barplots = [];
-            $hasData = false;
 
-            if (!empty($calc_data)) {
-                $barplot1 = new BarPlot($calc_data);
-                $barplot1->SetColor('orange');
-                $barplot1->SetFillColor('orange');
-                $barplot1->SetLegend('Calcul');
-                $barplots[] = $barplot1;
-                $hasData = true;
-            }
+            $barplot1 = new BarPlot($calc_data);
+            $barplot1->SetColor('orange');
+            $barplot1->SetFillColor('orange');
+            $barplot1->SetLegend('Calcul');
+            $barplots[] = $barplot1;
 
-            if (!empty($proj_data)) {
-                $barplot2 = new BarPlot($proj_data);
-                $barplot2->SetColor('purple');
-                $barplot2->SetFillColor('purple');
-                $barplot2->SetLegend('Projet');
-                $barplots[] = $barplot2;
-                $hasData = true;
-            }
-
-            if (!$hasData) {
-                return $this->createErrorImage('etude', 'Aucune barre de donnée valide');
-            }
+            $barplot2 = new BarPlot($proj_data);
+            $barplot2->SetColor('purple');
+            $barplot2->SetFillColor('purple');
+            $barplot2->SetLegend('Projet');
+            $barplots[] = $barplot2;
 
             if (count($barplots) > 1) {
                 $groupedBarPlot = new \Amenadiel\JpGraph\Plot\GroupBarPlot($barplots);
@@ -427,9 +382,9 @@ class GraphGeneratorModel {
 
         $meth_data = $data['methode']['METH'] ?? [];
 
-        if (empty($meth_data)) {
-            return $this->createErrorImage('methode', 'Aucune donnée de méthode cette période');
-        }
+        // Si pas de données, créer un array vide avec la bonne taille
+        $nombreSemaines = count($data['semaines_labels'] ?? []);
+        if (empty($meth_data)) $meth_data = array_fill(0, max(1, $nombreSemaines), 0);
 
         try {
             // Calculer la valeur maximale des données pour ajuster l'axe Y
@@ -450,9 +405,11 @@ class GraphGeneratorModel {
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
             $graph->xaxis->title->Set('Semaines de la période sélectionnée');
             $graph->yaxis->title->Set('Moyenne de personnes par semaine');
-            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
 
-            $nombreSemaines = count($data['semaines_labels'] ?? []);
+            $labels = $data['semaines_labels'] ?? ['Semaine 1'];
+            $graph->xaxis->SetTickLabels($labels);
+
+            $nombreSemaines = count($labels);
             if ($nombreSemaines > 8) {
                 $graph->xaxis->SetLabelAngle(90);
             } else {
@@ -488,9 +445,10 @@ class GraphGeneratorModel {
         $qual_data = $data['qualite']['QUAL'] ?? [];
         $quals_data = $data['qualite']['QUALS'] ?? [];
 
-        if (empty($qual_data) && empty($quals_data)) {
-            return $this->createErrorImage('qualite', 'Aucune donnée de qualité cette période');
-        }
+        // Si pas de données, créer des arrays vides avec la bonne taille
+        $nombreSemaines = count($data['semaines_labels'] ?? []);
+        if (empty($qual_data)) $qual_data = array_fill(0, max(1, $nombreSemaines), 0);
+        if (empty($quals_data)) $quals_data = array_fill(0, max(1, $nombreSemaines), 0);
 
         try {
             // Calculer la valeur maximale des données pour ajuster l'axe Y
@@ -513,9 +471,11 @@ class GraphGeneratorModel {
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
             $graph->xaxis->title->Set('Semaines de la période sélectionnée');
             $graph->yaxis->title->Set('Moyenne de personnes par semaine');
-            $graph->xaxis->SetTickLabels($data['semaines_labels'] ?? []);
 
-            $nombreSemaines = count($data['semaines_labels'] ?? []);
+            $labels = $data['semaines_labels'] ?? ['Semaine 1'];
+            $graph->xaxis->SetTickLabels($labels);
+
+            $nombreSemaines = count($labels);
             if ($nombreSemaines > 8) {
                 $graph->xaxis->SetLabelAngle(90);
             } else {
@@ -523,29 +483,18 @@ class GraphGeneratorModel {
             }
 
             $barplots = [];
-            $hasData = false;
 
-            if (!empty($qual_data)) {
-                $barplot1 = new BarPlot($qual_data);
-                $barplot1->SetColor('darkblue');
-                $barplot1->SetFillColor('darkblue');
-                $barplot1->SetLegend('Qualité');
-                $barplots[] = $barplot1;
-                $hasData = true;
-            }
+            $barplot1 = new BarPlot($qual_data);
+            $barplot1->SetColor('darkblue');
+            $barplot1->SetFillColor('darkblue');
+            $barplot1->SetLegend('Qualité');
+            $barplots[] = $barplot1;
 
-            if (!empty($quals_data)) {
-                $barplot2 = new BarPlot($quals_data);
-                $barplot2->SetColor('cyan');
-                $barplot2->SetFillColor('cyan');
-                $barplot2->SetLegend('Qualité Spécialisée');
-                $barplots[] = $barplot2;
-                $hasData = true;
-            }
-
-            if (!$hasData) {
-                return $this->createErrorImage('qualite', 'Aucune barre de donnée valide');
-            }
+            $barplot2 = new BarPlot($quals_data);
+            $barplot2->SetColor('cyan');
+            $barplot2->SetFillColor('cyan');
+            $barplot2->SetLegend('Qualité Spécialisée');
+            $barplots[] = $barplot2;
 
             if (count($barplots) > 1) {
                 $groupedBarPlot = new \Amenadiel\JpGraph\Plot\GroupBarPlot($barplots);

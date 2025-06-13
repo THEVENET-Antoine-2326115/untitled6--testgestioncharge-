@@ -125,11 +125,6 @@ class ChargeView {
                                             data-suggested-max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
                                         <?php endif; ?>
                                            required>
-                                    <div class="date-info">
-                                        <?php if (!empty($dateRange) && $dateRange['has_data']): ?>
-                                            <small>💡 Données disponibles : <?php echo htmlspecialchars($dateRange['date_min_formatted']); ?> - <?php echo htmlspecialchars($dateRange['date_max_formatted']); ?></small>
-                                        <?php endif; ?>
-                                    </div>
                                 </div>
 
                                 <div class="form-group">
@@ -147,9 +142,6 @@ class ChargeView {
                                             data-suggested-max="<?php echo htmlspecialchars($dateRange['date_max']); ?>"
                                         <?php endif; ?>
                                            required>
-                                    <div class="date-info">
-                                        <small>✅ Vous pouvez sélectionner n'importe quelle période</small>
-                                    </div>
                                 </div>
 
                                 <div class="form-group">
@@ -194,9 +186,8 @@ class ChargeView {
 
                         <div class="period-chart-info">
                             <p><strong>📅 Affichage :</strong> Moyennes de charge par semaine pour la période sélectionnée</p>
-                            <p><strong>📊 Axe X :</strong> Semaines de la période (format : début-fin de semaine)</p>
-                            <p><strong>📈 Axe Y :</strong> Moyenne de personnes par semaine (somme ÷ 5 jours)</p>
-                            <p><strong>↔️ Navigation :</strong> Défilement horizontal disponible pour les longues périodes</p>
+                            <p><strong>📊 Axe X :</strong> Semaines de la période</p>
+                            <p><strong>📈 Axe Y :</strong> Moyenne de personnes par semaine</p>
                         </div>
 
                         <!-- BOUTONS DE SÉLECTION DES GRAPHIQUES -->

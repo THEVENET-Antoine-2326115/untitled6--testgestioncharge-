@@ -7,6 +7,8 @@ namespace modules\blog\models;
  * Cette classe gère la lecture automatique des dossiers de planification,
  * la conversion des fichiers MPP en XLSX, et l'importation des données
  * dans la base de données.
+ *
+ * VERSION RÉCURSIVE : Explore tous les sous-dossiers de /uploads et /converted
  */
 class LectureDossierModel {
 
@@ -81,13 +83,14 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Récupère tous les fichiers XLSX dans le dossier converted
+     * 🆕 Récupère tous les fichiers XLSX dans le dossier converted (VERSION RÉCURSIVE)
      * Respecte le MVC : ne fait que lire les fichiers
+     * Explore tous les sous-dossiers de /converted
      *
      * @return array Liste des fichiers XLSX avec leurs informations
      */
     public function getAllConvertedFiles() {
-        $this->console_log("=== RÉCUPÉRATION FICHIERS CONVERTED ===");
+        $this->console_log("=== RÉCUPÉRATION RÉCURSIVE FICHIERS CONVERTED ===");
 
         $convertedFiles = [];
 
@@ -98,30 +101,15 @@ class LectureDossierModel {
                 return $convertedFiles;
             }
 
-            // Lire tous les fichiers du dossier converted
-            $files = scandir(self::XLSX_OUTPUT_FOLDER);
-            $this->console_log("Fichiers scannés: " . count($files));
+            // Collecte récursive de tous les fichiers XLSX convertis
+            $this->collectXlsxFilesRecursively(self::XLSX_OUTPUT_FOLDER, $convertedFiles);
 
-            foreach ($files as $file) {
-                if ($file === '.' || $file === '..') {
-                    continue;
-                }
+            $this->console_log("Total fichiers XLSX converted (récursif): " . count($convertedFiles));
 
-                $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
-
-                // Ne récupérer que les fichiers XLSX
-                if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
-                    $this->console_log("Fichier XLSX trouvé: " . $file);
-                    $convertedFiles[] = [
-                        'name' => $file,
-                        'path' => $filePath,
-                        'size' => filesize($filePath),
-                        'modified' => filemtime($filePath)
-                    ];
-                }
-            }
-
-            $this->console_log("Total fichiers XLSX converted: " . count($convertedFiles));
+            // Trier par date de modification (plus récents en premier)
+            usort($convertedFiles, function($a, $b) {
+                return $b['modified'] - $a['modified'];
+            });
 
         } catch (\Exception $e) {
             $this->console_log("💥 EXCEPTION récupération fichiers: " . $e->getMessage());
@@ -131,13 +119,14 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Recherche un fichier XLSX dans le dossier converted par numéro d'affaire
+     * 🆕 Recherche un fichier XLSX dans le dossier converted par numéro d'affaire (VERSION RÉCURSIVE)
+     * Explore tous les sous-dossiers de /converted
      *
      * @param string $numeroAffaire Numéro d'affaire à rechercher
      * @return array|null Informations du fichier trouvé ou null
      */
     private function findXlsxFileByNumber($numeroAffaire) {
-        $this->console_log("=== RECHERCHE FICHIER XLSX PAR NUMÉRO ===");
+        $this->console_log("=== RECHERCHE RÉCURSIVE FICHIER XLSX PAR NUMÉRO ===");
         $this->console_log("Recherche de: " . $numeroAffaire);
 
         // Vérifier que le dossier converted existe
@@ -146,42 +135,84 @@ class LectureDossierModel {
             return null;
         }
 
-        // Lire tous les fichiers du dossier converted
-        $files = scandir(self::XLSX_OUTPUT_FOLDER);
-        $this->console_log("Fichiers dans le dossier converted: " . count($files));
+        // Recherche récursive dans tous les sous-dossiers (max 3 niveaux pour converted)
+        $foundFile = $this->searchXlsxRecursively(self::XLSX_OUTPUT_FOLDER, $numeroAffaire, 3);
 
-        foreach ($files as $file) {
-            // Ignorer les dossiers spéciaux
-            if ($file === '.' || $file === '..') {
+        if ($foundFile) {
+            $relativePath = str_replace(self::XLSX_OUTPUT_FOLDER, '', dirname($foundFile['path']));
+            $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+            $location = $relativePath ? "dans sous-dossier: " . $relativePath : "à la racine";
+
+            $this->console_log("🎯 TROUVÉ! Fichier XLSX: " . $foundFile['name'] . " " . $location);
+        } else {
+            $this->console_log("❌ Aucun fichier XLSX trouvé contenant le numéro: " . $numeroAffaire);
+        }
+
+        return $foundFile;
+    }
+
+    /**
+     * 🆕 Fonction récursive pour explorer tous les dossiers XLSX
+     *
+     * @param string $directory Dossier à explorer
+     * @param string $numeroAffaire Numéro d'affaire recherché
+     * @param int $maxDepth Profondeur maximale
+     * @param int $currentDepth Profondeur actuelle
+     * @return array|null Fichier trouvé ou null
+     */
+    private function searchXlsxRecursively($directory, $numeroAffaire, $maxDepth = 3, $currentDepth = 0) {
+        // Sécurité : limiter la profondeur
+        if ($currentDepth >= $maxDepth) {
+            $this->console_log("⚠️ Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
+            return null;
+        }
+
+        $indentLevel = str_repeat("  ", $currentDepth);
+        $this->console_log($indentLevel . "🔍 Exploration XLSX niveau $currentDepth: " . basename($directory));
+
+        if (!is_dir($directory) || !is_readable($directory)) {
+            $this->console_log($indentLevel . "⚠️ Dossier inaccessible: " . $directory);
+            return null;
+        }
+
+        $items = scandir($directory);
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
                 continue;
             }
 
-            $this->console_log("Examen du fichier: " . $file);
+            $itemPath = $directory . DIRECTORY_SEPARATOR . $item;
 
-            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+            // Si c'est un fichier XLSX, vérifier le numéro
+            if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'xlsx') {
+                $this->console_log($indentLevel . "  📄 Fichier XLSX: " . $item);
 
-            // Vérifier si c'est un fichier XLSX
-            if (!is_file($filePath) || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'xlsx') {
-                $this->console_log("Ignoré (pas un fichier XLSX): " . $file);
-                continue;
+                if ($this->fileContainsNumber($item, $numeroAffaire)) {
+                    $this->console_log($indentLevel . "  ✅ MATCH XLSX TROUVÉ! Numéro dans: " . $item);
+
+                    return [
+                        'name' => $item,
+                        'path' => $itemPath,
+                        'size' => filesize($itemPath),
+                        'modified' => filemtime($itemPath),
+                        'directory' => $directory,
+                        'depth' => $currentDepth,
+                        'relative_path' => str_replace(self::XLSX_OUTPUT_FOLDER, '', $directory)
+                    ];
+                }
             }
+            // Si c'est un dossier, explorer récursivement
+            elseif (is_dir($itemPath)) {
+                $this->console_log($indentLevel . "  📁 Sous-dossier XLSX: " . $item);
 
-            // Vérifier si le nom du fichier contient le numéro d'affaire
-            if ($this->fileContainsNumber($file, $numeroAffaire)) {
-                $this->console_log("🎯 TROUVÉ! Fichier XLSX correspondant: " . $file);
-
-                return [
-                    'name' => $file,
-                    'path' => $filePath,
-                    'size' => filesize($filePath),
-                    'modified' => filemtime($filePath)
-                ];
-            } else {
-                $this->console_log("Numéro non trouvé dans: " . $file);
+                $result = $this->searchXlsxRecursively($itemPath, $numeroAffaire, $maxDepth, $currentDepth + 1);
+                if ($result) {
+                    return $result;
+                }
             }
         }
 
-        $this->console_log("❌ Aucun fichier XLSX trouvé contenant le numéro: " . $numeroAffaire);
         return null;
     }
 
@@ -330,13 +361,14 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Recherche un fichier MPP par numéro d'affaire
+     * 🆕 Recherche un fichier MPP par numéro d'affaire (VERSION RÉCURSIVE)
+     * Explore tous les sous-dossiers de /uploads avec limite de profondeur
      *
      * @param string $numeroAffaire Numéro d'affaire à rechercher
      * @return array|null Informations du fichier trouvé ou null
      */
     private function findMppFileByNumber($numeroAffaire) {
-        $this->console_log("=== RECHERCHE FICHIER PAR NUMÉRO ===");
+        $this->console_log("=== RECHERCHE RÉCURSIVE FICHIER PAR NUMÉRO ===");
         $this->console_log("Recherche de: " . $numeroAffaire);
 
         // Vérifier que le dossier source existe
@@ -345,43 +377,93 @@ class LectureDossierModel {
             return null;
         }
 
-        // Lire tous les fichiers du dossier
-        $files = scandir(self::MPP_SOURCE_FOLDER);
-        $this->console_log("Fichiers dans le dossier: " . count($files));
+        // Recherche récursive dans tous les sous-dossiers (max 5 niveaux de profondeur)
+        $foundFile = $this->searchMppRecursively(self::MPP_SOURCE_FOLDER, $numeroAffaire, 5);
 
-        foreach ($files as $file) {
-            // Ignorer les dossiers spéciaux
-            if ($file === '.' || $file === '..') {
+        if ($foundFile) {
+            $relativePath = str_replace(self::MPP_SOURCE_FOLDER, '', dirname($foundFile['path']));
+            $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+            $location = $relativePath ? "dans sous-dossier: " . $relativePath : "à la racine";
+
+            $this->console_log("🎯 TROUVÉ! Fichier: " . $foundFile['name'] . " " . $location);
+        } else {
+            $this->console_log("❌ Aucun fichier MPP trouvé contenant le numéro: " . $numeroAffaire);
+        }
+
+        return $foundFile;
+    }
+
+    /**
+     * 🆕 Fonction récursive pour explorer tous les dossiers MPP
+     * Recherche avec limite de profondeur pour éviter les boucles infinies
+     *
+     * @param string $directory Dossier à explorer
+     * @param string $numeroAffaire Numéro d'affaire recherché
+     * @param int $maxDepth Profondeur maximale (par défaut 5 niveaux)
+     * @param int $currentDepth Profondeur actuelle
+     * @return array|null Fichier trouvé ou null
+     */
+    private function searchMppRecursively($directory, $numeroAffaire, $maxDepth = 5, $currentDepth = 0) {
+        // Sécurité : limiter la profondeur pour éviter les boucles infinies et les performances dégradées
+        if ($currentDepth >= $maxDepth) {
+            $this->console_log("⚠️ Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
+            return null;
+        }
+
+        $indentLevel = str_repeat("  ", $currentDepth); // Indentation pour le debug
+        $this->console_log($indentLevel . "🔍 Exploration niveau $currentDepth: " . basename($directory));
+
+        if (!is_dir($directory) || !is_readable($directory)) {
+            $this->console_log($indentLevel . "⚠️ Dossier inaccessible: " . $directory);
+            return null;
+        }
+
+        $items = scandir($directory);
+        $fileCount = 0;
+        $dirCount = 0;
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
                 continue;
             }
 
-            $this->console_log("Examen du fichier: " . $file);
+            $itemPath = $directory . DIRECTORY_SEPARATOR . $item;
 
-            $filePath = self::MPP_SOURCE_FOLDER . DIRECTORY_SEPARATOR . $file;
+            // Si c'est un fichier MPP, vérifier le numéro
+            if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'mpp') {
+                $fileCount++;
+                $this->console_log($indentLevel . "  📄 Fichier MPP: " . $item);
 
-            // Vérifier si c'est un fichier MPP
-            if (!is_file($filePath) || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'mpp') {
-                $this->console_log("Ignoré (pas un fichier MPP): " . $file);
-                continue;
+                if ($this->fileContainsNumber($item, $numeroAffaire)) {
+                    $this->console_log($indentLevel . "  ✅ MATCH TROUVÉ! Numéro dans: " . $item);
+
+                    return [
+                        'name' => $item,
+                        'path' => $itemPath,
+                        'size' => filesize($itemPath),
+                        'modified' => filemtime($itemPath),
+                        'directory' => $directory,
+                        'depth' => $currentDepth,
+                        'relative_path' => str_replace(self::MPP_SOURCE_FOLDER, '', $directory)
+                    ];
+                } else {
+                    $this->console_log($indentLevel . "  ❌ Pas de match dans: " . $item);
+                }
             }
+            // Si c'est un dossier, explorer récursivement
+            elseif (is_dir($itemPath)) {
+                $dirCount++;
+                $this->console_log($indentLevel . "  📁 Sous-dossier détecté: " . $item);
 
-            // Vérifier si le nom du fichier contient le numéro d'affaire
-            if ($this->fileContainsNumber($file, $numeroAffaire)) {
-                $this->console_log("🎯 TROUVÉ! Fichier correspondant: " . $file);
-
-                return [
-                    'name' => $file,
-                    'path' => $filePath,
-                    'size' => filesize($filePath),
-                    'modified' => filemtime($filePath)
-                ];
-            } else {
-                $this->console_log("Numéro non trouvé dans: " . $file);
+                $result = $this->searchMppRecursively($itemPath, $numeroAffaire, $maxDepth, $currentDepth + 1);
+                if ($result) {
+                    return $result; // Retourner dès qu'on trouve un match
+                }
             }
         }
 
-        $this->console_log("❌ Aucun fichier MPP trouvé contenant le numéro: " . $numeroAffaire);
-        return null;
+        $this->console_log($indentLevel . "📊 Niveau $currentDepth terminé - Fichiers MPP: $fileCount, Sous-dossiers: $dirCount");
+        return null; // Rien trouvé dans ce dossier et ses sous-dossiers
     }
 
     /**
@@ -468,12 +550,13 @@ class LectureDossierModel {
     }
 
     /**
-     * Retourne la liste des fichiers MPP dans le dossier source
+     * Retourne la liste des fichiers MPP dans le dossier source (VERSION RÉCURSIVE)
+     * Explore tous les sous-dossiers de /uploads
      *
      * @return array Liste des fichiers MPP
      */
     public function getMppFiles() {
-        $this->console_log("=== getMppFiles() ===");
+        $this->console_log("=== getMppFiles() RÉCURSIF ===");
 
         $mppFiles = [];
 
@@ -482,38 +565,79 @@ class LectureDossierModel {
             return $mppFiles;
         }
 
-        $files = scandir(self::MPP_SOURCE_FOLDER);
-        $this->console_log("Fichiers scannés: " . count($files));
+        // Collecte récursive de tous les fichiers MPP
+        $this->collectMppFilesRecursively(self::MPP_SOURCE_FOLDER, $mppFiles);
 
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
+        $this->console_log("Total fichiers MPP trouvés (récursif): " . count($mppFiles));
 
-            $filePath = self::MPP_SOURCE_FOLDER . DIRECTORY_SEPARATOR . $file;
+        // Trier par nom pour un affichage cohérent
+        usort($mppFiles, function($a, $b) {
+            return strcmp($a['name'], $b['name']);
+        });
 
-            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mpp') {
-                $this->console_log("Fichier MPP trouvé: " . $file);
-                $mppFiles[] = [
-                    'name' => $file,
-                    'path' => $filePath,
-                    'size' => filesize($filePath),
-                    'modified' => filemtime($filePath)
-                ];
-            }
-        }
-
-        $this->console_log("Total fichiers MPP: " . count($mppFiles));
         return $mppFiles;
     }
 
     /**
-     * Retourne la liste des fichiers XLSX dans le dossier de destination
+     * 🆕 Collecte récursivement tous les fichiers MPP
+     *
+     * @param string $directory Dossier à explorer
+     * @param array &$mppFiles Tableau de fichiers MPP (passé par référence)
+     * @param int $maxDepth Profondeur maximale
+     * @param int $currentDepth Profondeur actuelle
+     */
+    private function collectMppFilesRecursively($directory, &$mppFiles, $maxDepth = 5, $currentDepth = 0) {
+        // Sécurité : limiter la profondeur
+        if ($currentDepth >= $maxDepth) {
+            return;
+        }
+
+        if (!is_dir($directory) || !is_readable($directory)) {
+            return;
+        }
+
+        $items = scandir($directory);
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $itemPath = $directory . DIRECTORY_SEPARATOR . $item;
+
+            // Si c'est un fichier MPP, l'ajouter à la liste
+            if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'mpp') {
+                $relativePath = str_replace(self::MPP_SOURCE_FOLDER, '', $directory);
+                $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+
+                $this->console_log("Fichier MPP trouvé: " . $item .
+                    ($relativePath ? " (dans: " . $relativePath . ")" : " (racine)"));
+
+                $mppFiles[] = [
+                    'name' => $item,
+                    'path' => $itemPath,
+                    'size' => filesize($itemPath),
+                    'modified' => filemtime($itemPath),
+                    'directory' => $directory,
+                    'relative_path' => $relativePath ?: '/',
+                    'depth' => $currentDepth
+                ];
+            }
+            // Si c'est un dossier, explorer récursivement
+            elseif (is_dir($itemPath)) {
+                $this->collectMppFilesRecursively($itemPath, $mppFiles, $maxDepth, $currentDepth + 1);
+            }
+        }
+    }
+
+    /**
+     * Retourne la liste des fichiers XLSX dans le dossier de destination (VERSION RÉCURSIVE)
+     * Explore tous les sous-dossiers de /converted
      *
      * @return array Liste des fichiers XLSX
      */
     public function getXlsxFiles() {
-        $this->console_log("=== getXlsxFiles() ===");
+        $this->console_log("=== getXlsxFiles() RÉCURSIF ===");
 
         $xlsxFiles = [];
 
@@ -522,38 +646,79 @@ class LectureDossierModel {
             return $xlsxFiles;
         }
 
-        $files = scandir(self::XLSX_OUTPUT_FOLDER);
-        $this->console_log("Fichiers scannés: " . count($files));
+        // Collecte récursive de tous les fichiers XLSX
+        $this->collectXlsxFilesRecursively(self::XLSX_OUTPUT_FOLDER, $xlsxFiles);
 
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
+        $this->console_log("Total fichiers XLSX trouvés (récursif): " . count($xlsxFiles));
 
-            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+        // Trier par nom pour un affichage cohérent
+        usort($xlsxFiles, function($a, $b) {
+            return strcmp($a['name'], $b['name']);
+        });
 
-            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
-                $this->console_log("Fichier XLSX trouvé: " . $file);
-                $xlsxFiles[] = [
-                    'name' => $file,
-                    'path' => $filePath,
-                    'size' => filesize($filePath),
-                    'modified' => filemtime($filePath)
-                ];
-            }
-        }
-
-        $this->console_log("Total fichiers XLSX: " . count($xlsxFiles));
         return $xlsxFiles;
     }
 
     /**
-     * 🆕 Retourne la liste détaillée des fichiers XLSX avec numéro d'affaire et nom extrait
+     * 🆕 Collecte récursivement tous les fichiers XLSX
+     *
+     * @param string $directory Dossier à explorer
+     * @param array &$xlsxFiles Tableau de fichiers XLSX (passé par référence)
+     * @param int $maxDepth Profondeur maximale
+     * @param int $currentDepth Profondeur actuelle
+     */
+    private function collectXlsxFilesRecursively($directory, &$xlsxFiles, $maxDepth = 3, $currentDepth = 0) {
+        // Sécurité : limiter la profondeur
+        if ($currentDepth >= $maxDepth) {
+            return;
+        }
+
+        if (!is_dir($directory) || !is_readable($directory)) {
+            return;
+        }
+
+        $items = scandir($directory);
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $itemPath = $directory . DIRECTORY_SEPARATOR . $item;
+
+            // Si c'est un fichier XLSX, l'ajouter à la liste
+            if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'xlsx') {
+                $relativePath = str_replace(self::XLSX_OUTPUT_FOLDER, '', $directory);
+                $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+
+                $this->console_log("Fichier XLSX trouvé: " . $item .
+                    ($relativePath ? " (dans: " . $relativePath . ")" : " (racine)"));
+
+                $xlsxFiles[] = [
+                    'name' => $item,
+                    'path' => $itemPath,
+                    'size' => filesize($itemPath),
+                    'modified' => filemtime($itemPath),
+                    'directory' => $directory,
+                    'relative_path' => $relativePath ?: '/',
+                    'depth' => $currentDepth
+                ];
+            }
+            // Si c'est un dossier, explorer récursivement
+            elseif (is_dir($itemPath)) {
+                $this->collectXlsxFilesRecursively($itemPath, $xlsxFiles, $maxDepth, $currentDepth + 1);
+            }
+        }
+    }
+
+    /**
+     * 🆕 Retourne la liste détaillée des fichiers XLSX avec numéro d'affaire et nom extrait (VERSION RÉCURSIVE)
+     * Explore tous les sous-dossiers de /converted
      *
      * @return array Liste des fichiers XLSX avec détails (numéro d'affaire, nom propre, etc.)
      */
     public function getXlsxFilesDetailed() {
-        $this->console_log("=== getXlsxFilesDetailed() ===");
+        $this->console_log("=== getXlsxFilesDetailed() RÉCURSIF ===");
 
         $xlsxFilesDetailed = [];
 
@@ -562,40 +727,48 @@ class LectureDossierModel {
             return $xlsxFilesDetailed;
         }
 
-        $files = scandir(self::XLSX_OUTPUT_FOLDER);
-        $this->console_log("Fichiers scannés: " . count($files));
+        // Récupérer tous les fichiers XLSX (méthode récursive)
+        $xlsxFiles = [];
+        $this->collectXlsxFilesRecursively(self::XLSX_OUTPUT_FOLDER, $xlsxFiles);
 
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
+        $this->console_log("Fichiers XLSX trouvés pour analyse détaillée: " . count($xlsxFiles));
 
-            $filePath = self::XLSX_OUTPUT_FOLDER . DIRECTORY_SEPARATOR . $file;
+        foreach ($xlsxFiles as $file) {
+            $this->console_log("Analyse détaillée du fichier: " . $file['name']);
 
-            if (is_file($filePath) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'xlsx') {
-                $this->console_log("Fichier XLSX trouvé: " . $file);
+            // Extraire le numéro d'affaire et le nom propre
+            $fileDetails = $this->extractFileDetails($file['name']);
 
-                // Extraire le numéro d'affaire et le nom propre
-                $fileDetails = $this->extractFileDetails($file);
-
-                $fileSize = filesize($filePath);
-                $fileModified = filemtime($filePath);
-
-                $xlsxFilesDetailed[] = [
-                    'name' => $file,
-                    'path' => $filePath,
-                    'size' => $fileSize,
-                    'size_formatted' => $this->formatFileSize($fileSize),
-                    'modified' => $fileModified,
-                    'modified_formatted' => date('d/m/Y H:i', $fileModified),
-                    'numero_affaire' => $fileDetails['numero_affaire'],
-                    'nom_propre' => $fileDetails['nom_propre'],
-                    'has_numero' => $fileDetails['has_numero']
-                ];
-            }
+            $xlsxFilesDetailed[] = [
+                'name' => $file['name'],
+                'path' => $file['path'],
+                'size' => $file['size'],
+                'size_formatted' => $this->formatFileSize($file['size']),
+                'modified' => $file['modified'],
+                'modified_formatted' => date('d/m/Y H:i', $file['modified']),
+                'numero_affaire' => $fileDetails['numero_affaire'],
+                'nom_propre' => $fileDetails['nom_propre'],
+                'has_numero' => $fileDetails['has_numero'],
+                'directory' => $file['directory'],
+                'relative_path' => $file['relative_path'],
+                'depth' => $file['depth']
+            ];
         }
 
-        $this->console_log("Total fichiers XLSX détaillés: " . count($xlsxFilesDetailed));
+        // Trier par numéro d'affaire puis par nom
+        usort($xlsxFilesDetailed, function($a, $b) {
+            if ($a['has_numero'] && $b['has_numero']) {
+                return strcmp($a['numero_affaire'], $b['numero_affaire']);
+            } elseif ($a['has_numero']) {
+                return -1; // Fichiers avec numéro en premier
+            } elseif ($b['has_numero']) {
+                return 1;
+            } else {
+                return strcmp($a['name'], $b['name']);
+            }
+        });
+
+        $this->console_log("Total fichiers XLSX détaillés (récursif): " . count($xlsxFilesDetailed));
         return $xlsxFilesDetailed;
     }
 
