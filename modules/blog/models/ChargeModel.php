@@ -474,10 +474,6 @@ class ChargeModel {
         ];
     }
 
-    // ========================================
-    // MÉTHODES CONSERVÉES POUR COMPATIBILITÉ
-    // ========================================
-
     /**
      * Filtre les données pour ne garder que les jours présents et futurs
      *

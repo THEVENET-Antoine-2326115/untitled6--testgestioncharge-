@@ -116,22 +116,15 @@ class DashboardView {
                 <h1>gestion des données d'entrée</h1>
                 <p>Bienvenue <?php echo htmlspecialchars($userInfo['nom']); ?></p>
 
-                <div class="menu-items">
-                    <div class="menu-item">
-                        <a href="index.php">
-                            <div class="icon">📊</div>
-                            <h3>Visualiser les données</h3>
-                            <p>Consulter les données de la base de données</p>
-                        </a>
-                    </div>
-                    <div class="menu-item">
-                        <a href="index.php?action=analyse-charge">
-                            <div class="icon">📈</div>
-                            <h3>Analyse de charge</h3>
-                            <p>Analyser la répartition de charge par période</p>
-                        </a>
-                    </div>
+
+                <div class="menu-item">
+                    <a href="index.php?action=analyse-charge">
+                        <div class="icon">📊</div>
+                        <h3>Analyse de charge</h3>
+                        <p>Analyser la répartition de charge par période</p>
+                    </a>
                 </div>
+
 
                 <!-- Section d'importation et conversion -->
                 <div class="import-section">

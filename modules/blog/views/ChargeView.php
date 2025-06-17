@@ -94,7 +94,6 @@ class ChargeView {
         <div class="container">
             <div class="card">
                 <h1>Analyse de Charge - Gestion de Charge</h1>
-                <p>Bienvenue <?php echo htmlspecialchars($userInfo['nom']); ?></p>
 
                 <div class="summary-box">
                     <div class="summary-title">Résumé de l'analyse</div>
@@ -280,32 +279,6 @@ class ChargeView {
                     </div>
                 <?php endif; ?>
 
-                <!-- Section récapitulatif global (toutes les données) -->
-                <?php if (!empty($resultats['chargeParSemaine'])): ?>
-                    <div class="global-summary-section">
-                        <h2>📋 Récapitulatif global par semaine</h2>
-                        <p class="summary-note">
-                            <em>Note : Ce récapitulatif affiche toutes les données disponibles,
-                                pas seulement la période sélectionnée ci-dessus.</em>
-                        </p>
-                        <div class="summary-box">
-                            <div class="summary-title">Charge par processus (toutes semaines)</div>
-                            <?php foreach ($resultats['chargeParSemaine'] as $semaine): ?>
-                                <div class="weekly-summary">
-                                    <h4>Semaine du <?php echo htmlspecialchars($semaine['debut']); ?> au <?php echo htmlspecialchars($semaine['fin']); ?></h4>
-                                    <div class="weekly-processes">
-                                        <?php foreach ($semaine['processus'] as $processus => $charge): ?>
-                                            <div class="process-charge">
-                                                <span class="process-name"><?php echo htmlspecialchars($processus); ?>:</span>
-                                                <span class="charge-value"><?php echo number_format($charge, 2); ?> personne(s)</span>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
 
                 <script>
                     // FONCTION POUR AFFICHER/MASQUER LES GRAPHIQUES
