@@ -275,7 +275,6 @@ class ChargeView {
                     <div class="no-period-message">
                         <h3>📅 Sélectionnez une période pour visualiser les graphiques</h3>
                         <p>Choisissez une date de début et une date de fin, puis cliquez sur "Analyser cette période".</p>
-                        <p><small>Les graphiques afficheront les moyennes par semaine (somme des charges ÷ 5 jours).</small></p>
                     </div>
                 <?php endif; ?>
 

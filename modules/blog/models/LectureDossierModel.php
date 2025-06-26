@@ -13,7 +13,7 @@ namespace modules\blog\models;
 class LectureDossierModel {
 
     /**
-     * 🆕 Supprime un fichier XLSX converti par numéro d'affaire (fichier uniquement)
+     * Supprime un fichier XLSX converti par numéro d'affaire (fichier uniquement)
      * Respecte le MVC : ne touche que aux fichiers
      *
      * @param string $numeroAffaire Numéro d'affaire du fichier à supprimer
@@ -46,8 +46,8 @@ class LectureDossierModel {
                 return $result;
             }
 
-            $this->console_log("✅ Fichier XLSX trouvé: " . $foundFile['name']);
-            $this->log_message("✅ Fichier XLSX trouvé: " . $foundFile['name']);
+            $this->console_log(" Fichier XLSX trouvé: " . $foundFile['name']);
+            $this->log_message(" Fichier XLSX trouvé: " . $foundFile['name']);
             $result['file_found'] = $foundFile;
 
             // Supprimer le fichier XLSX
@@ -55,8 +55,8 @@ class LectureDossierModel {
             $this->log_message("Suppression du fichier: " . $foundFile['name']);
 
             if (!unlink($foundFile['path'])) {
-                $this->console_log("❌ Erreur lors de la suppression du fichier: " . $foundFile['name']);
-                $this->log_message("❌ Erreur lors de la suppression du fichier: " . $foundFile['name']);
+                $this->console_log(" Erreur lors de la suppression du fichier: " . $foundFile['name']);
+                $this->log_message(" Erreur lors de la suppression du fichier: " . $foundFile['name']);
 
                 $result['message'] = "Erreur lors de la suppression du fichier \"" . $foundFile['name'] . "\". Vérifiez les permissions.";
                 return $result;
@@ -83,8 +83,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Récupère tous les fichiers XLSX dans le dossier converted (VERSION RÉCURSIVE)
-     * Respecte le MVC : ne fait que lire les fichiers
+     *  Récupère tous les fichiers XLSX dans le dossier converted
      * Explore tous les sous-dossiers de /converted
      *
      * @return array Liste des fichiers XLSX avec leurs informations
@@ -119,7 +118,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Recherche un fichier XLSX dans le dossier converted par numéro d'affaire (VERSION RÉCURSIVE)
+     * Recherche un fichier XLSX dans le dossier converted par numéro d'affaire
      * Explore tous les sous-dossiers de /converted
      *
      * @param string $numeroAffaire Numéro d'affaire à rechercher
@@ -131,7 +130,7 @@ class LectureDossierModel {
 
         // Vérifier que le dossier converted existe
         if (!is_dir(self::XLSX_OUTPUT_FOLDER)) {
-            $this->console_log("❌ Dossier converted introuvable: " . self::XLSX_OUTPUT_FOLDER);
+            $this->console_log(" Dossier converted introuvable: " . self::XLSX_OUTPUT_FOLDER);
             return null;
         }
 
@@ -143,9 +142,9 @@ class LectureDossierModel {
             $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
             $location = $relativePath ? "dans sous-dossier: " . $relativePath : "à la racine";
 
-            $this->console_log("🎯 TROUVÉ! Fichier XLSX: " . $foundFile['name'] . " " . $location);
+            $this->console_log(" TROUVÉ! Fichier XLSX: " . $foundFile['name'] . " " . $location);
         } else {
-            $this->console_log("❌ Aucun fichier XLSX trouvé contenant le numéro: " . $numeroAffaire);
+            $this->console_log(" Aucun fichier XLSX trouvé contenant le numéro: " . $numeroAffaire);
         }
 
         return $foundFile;
