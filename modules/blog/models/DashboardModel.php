@@ -89,7 +89,6 @@ class DashboardModel {
 
     /**
      * Lance le processus de conversion ciblée par numéro d'affaire
-     * 🗑️ ANCIENNE VERSION GLOBALE SUPPRIMÉE
      *
      * @param string $numeroAffaire Numéro d'affaire pour conversion ciblée (obligatoire)
      * @return array Résultat du processus complet
@@ -112,8 +111,7 @@ class DashboardModel {
     }
 
     /**
-     * 🆕 Supprime un fichier XLSX converti par numéro d'affaire et reconstruit la BD
-     * Orchestration respectant le modèle MVC
+     *Supprime un fichier XLSX converti par numéro d'affaire et reconstruit la BD
      *
      * @param string $numeroAffaire Numéro d'affaire du fichier à supprimer
      * @return array Résultat de la suppression et reconstruction
@@ -180,8 +178,7 @@ class DashboardModel {
     }
 
     /**
-     * 🆕 Reconstruit la base de données à partir d'une liste de fichiers XLSX
-     * Respecte le MVC : utilise ExcelToBdModel pour l'importation
+     *Reconstruit la base de données à partir d'une liste de fichiers XLSX
      *
      * @param array $files Liste des fichiers à importer
      * @return array Résultat de la reconstruction
@@ -301,7 +298,7 @@ class DashboardModel {
     }
 
     /**
-     * 🆕 Obtenir la liste détaillée des fichiers XLSX convertis (avec numéros d'affaire)
+     * Obtenir la liste détaillée des fichiers XLSX convertis (avec numéros d'affaire)
      *
      * @return array Liste détaillée des fichiers XLSX
      */

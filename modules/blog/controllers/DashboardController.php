@@ -17,7 +17,7 @@ class DashboardController {
     private $view;
 
     /**
-     * 🆕 Gère la suppression d'un fichier XLSX converti par numéro d'affaire
+     * Gère la suppression d'un fichier XLSX converti par numéro d'affaire
      *
      * @param array $userInfo Informations de l'utilisateur
      */
@@ -40,18 +40,18 @@ class DashboardController {
                 return;
             }
 
-            echo "<script>console.log('✅ Validation réussie');</script>";
+            echo "<script>console.log(' Validation réussie');</script>";
 
             // Lancer la suppression ciblée via le modèle
             $deletionResult = $this->model->deleteConvertedFileByNumber($numeroAffaire);
 
             if ($deletionResult['success']) {
-                echo "<script>console.log('✅ Suppression et reconstruction réussies');</script>";
+                echo "<script>console.log(' Suppression et reconstruction réussies');</script>";
 
                 // Forcer le rechargement des données après reconstruction
                 $this->model->refreshData();
             } else {
-                echo "<script>console.log('❌ Erreur suppression: " . addslashes($deletionResult['message']) . "');</script>";
+                echo "<script>console.log(' Erreur suppression: " . addslashes($deletionResult['message']) . "');</script>";
             }
 
             // Préparer les données et afficher avec le résultat
@@ -59,7 +59,7 @@ class DashboardController {
             echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $deletionResult);
 
         } catch (\Exception $e) {
-            echo "<script>console.log('💥 Exception suppression par numéro: " . addslashes($e->getMessage()) . "');</script>";
+            echo "<script>console.log(' Exception suppression par numéro: " . addslashes($e->getMessage()) . "');</script>";
 
             $result = [
                 'success' => false,
@@ -135,7 +135,7 @@ class DashboardController {
     }
 
     /**
-     * 🆕 Gère la conversion d'un fichier spécifique par numéro d'affaire
+     * Gère la conversion d'un fichier spécifique par numéro d'affaire
      *
      * @param array $userInfo Informations de l'utilisateur
      */
@@ -151,25 +151,25 @@ class DashboardController {
             // Validation côté serveur
             $validationResult = $this->validateNumeroAffaire($numeroAffaire);
             if (!$validationResult['success']) {
-                echo "<script>console.log('❌ Validation échouée: " . addslashes($validationResult['message']) . "');</script>";
+                echo "<script>console.log(' Validation échouée: " . addslashes($validationResult['message']) . "');</script>";
 
                 $dashboardData = $this->prepareDashboardData();
                 echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $validationResult);
                 return;
             }
 
-            echo "<script>console.log('✅ Validation réussie');</script>";
+            echo "<script>console.log(' Validation réussie');</script>";
 
             // Lancer la conversion ciblée via le modèle
             $conversionResult = $this->model->processConversion($numeroAffaire);
 
             if ($conversionResult['success']) {
-                echo "<script>console.log('✅ Conversion réussie');</script>";
+                echo "<script>console.log(' Conversion réussie');</script>";
 
                 // Forcer le rechargement des données après conversion
                 $this->model->refreshData();
             } else {
-                echo "<script>console.log('❌ Erreur conversion: " . addslashes($conversionResult['message']) . "');</script>";
+                echo "<script>console.log(' Erreur conversion: " . addslashes($conversionResult['message']) . "');</script>";
             }
 
             // Préparer les données et afficher avec le résultat
@@ -177,7 +177,7 @@ class DashboardController {
             echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $conversionResult);
 
         } catch (\Exception $e) {
-            echo "<script>console.log('💥 Exception conversion par numéro: " . addslashes($e->getMessage()) . "');</script>";
+            echo "<script>console.log(' Exception conversion par numéro: " . addslashes($e->getMessage()) . "');</script>";
 
             $result = [
                 'success' => false,
@@ -190,7 +190,7 @@ class DashboardController {
     }
 
     /**
-     * 🆕 Valide le format du numéro d'affaire
+     * Valide le format du numéro d'affaire
      *
      * @param string $numeroAffaire Numéro à valider
      * @return array Résultat de la validation
@@ -223,7 +223,7 @@ class DashboardController {
             ];
         }
 
-        echo "<script>console.log('✅ Numéro d\\'affaire valide: " . addslashes($numeroAffaire) . "');</script>";
+        echo "<script>console.log(' Numéro d\\'affaire valide: " . addslashes($numeroAffaire) . "');</script>";
 
         return [
             'success' => true,
@@ -254,7 +254,7 @@ class DashboardController {
             $result = $this->ajoutChargeModel->supprimerCharge($donnees);
 
             if ($result['success']) {
-                echo "<script>console.log('✅ Suppression réussie');</script>";
+                echo "<script>console.log(' Suppression réussie');</script>";
 
                 // Forcer le rechargement des données dans ImportModel
                 $this->model->refreshData();
@@ -284,7 +284,7 @@ class DashboardController {
     }
 
     /**
-     * 🆕 Gère l'ajout manuel d'une charge
+     * Gère l'ajout manuel d'une charge
      *
      * @param array $userInfo Informations de l'utilisateur
      */
@@ -306,7 +306,7 @@ class DashboardController {
             $result = $this->ajoutChargeModel->ajouterCharge($donnees);
 
             if ($result['success']) {
-                echo "<script>console.log('✅ Ajout réussi');</script>";
+                echo "<script>console.log(' Ajout réussi');</script>";
 
                 // Forcer le rechargement des données dans ImportModel
                 $this->model->refreshData();
@@ -315,7 +315,7 @@ class DashboardController {
                 $dashboardData = $this->prepareDashboardData();
                 echo $this->view->showDashboardWithResult($userInfo, $dashboardData, $result);
             } else {
-                echo "<script>console.log('❌ Erreur ajout: " . addslashes($result['message']) . "');</script>";
+                echo "<script>console.log(' Erreur ajout: " . addslashes($result['message']) . "');</script>";
 
                 // Préparer les données et afficher avec le résultat d'erreur
                 $dashboardData = $this->prepareDashboardData();
@@ -323,7 +323,7 @@ class DashboardController {
             }
 
         } catch (\Exception $e) {
-            echo "<script>console.log('💥 Exception ajout charge: " . addslashes($e->getMessage()) . "');</script>";
+            echo "<script>console.log(' Exception ajout charge: " . addslashes($e->getMessage()) . "');</script>";
 
             $result = [
                 'success' => false,
@@ -477,9 +477,9 @@ class DashboardController {
         // Informations sur les fichiers
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
-        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed(); // 🆕 NOUVEAU
+        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed();
 
-        // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
+        // AJOUTER LES SUGGESTIONS DE PROCESSUS
         $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
 
         return [
@@ -487,7 +487,7 @@ class DashboardController {
             'files_info' => [
                 'mpp_count' => count($mppFiles),
                 'xlsx_count' => count($xlsxFiles),
-                'xlsx_files_detailed' => $xlsxFilesDetailed // 🆕 NOUVEAU
+                'xlsx_files_detailed' => $xlsxFilesDetailed
             ],
             'display_data' => $displayData,
             'display_title' => $displayTitle,
@@ -495,7 +495,7 @@ class DashboardController {
         ];
     }
 
-// 🆕 Même modification dans prepareAllDataForDisplay() :
+// Même modification dans prepareAllDataForDisplay() :
     /**
      * Prépare toutes les données pour l'affichage complet
      *
@@ -518,9 +518,9 @@ class DashboardController {
         // Informations sur les fichiers
         $mppFiles = $this->model->getMppFilesList();
         $xlsxFiles = $this->model->getXlsxFilesList();
-        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed(); // 🆕 NOUVEAU
+        $xlsxFilesDetailed = $this->model->getXlsxFilesDetailed();
 
-        // 🆕 AJOUTER LES SUGGESTIONS DE PROCESSUS
+        // AJOUTER LES SUGGESTIONS DE PROCESSUS
         $processusSuggestions = $this->ajoutChargeModel->getProcessusSuggestions();
 
         return [
@@ -528,7 +528,7 @@ class DashboardController {
             'files_info' => [
                 'mpp_count' => count($mppFiles),
                 'xlsx_count' => count($xlsxFiles),
-                'xlsx_files_detailed' => $xlsxFilesDetailed // 🆕 NOUVEAU
+                'xlsx_files_detailed' => $xlsxFilesDetailed
             ],
             'display_data' => $displayData,
             'display_title' => "Toutes les données (" . count($allData) . " entrées)",

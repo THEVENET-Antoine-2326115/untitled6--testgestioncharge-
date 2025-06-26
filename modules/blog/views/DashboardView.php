@@ -215,7 +215,7 @@ class DashboardView {
                                     </div>
                                     <div class="form-group buttons-group">
                                         <button type="submit" class="btn-convert-selective" onclick="setConvertAction('convert_by_number')">
-                                            🔄 Convertir ce fichier
+                                            🔄 Convertir et ajouter ce fichier
                                         </button>
                                         <button type="submit" class="btn-delete-selective" onclick="setConvertAction('delete_by_number')">
                                             🗑️ Supprimer le fichier converti

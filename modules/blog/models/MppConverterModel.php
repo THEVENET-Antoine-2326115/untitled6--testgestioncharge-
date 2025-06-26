@@ -92,16 +92,11 @@ class MppConverterModel {
         $cloudOutputFileName = pathinfo($cloudFileName, PATHINFO_FILENAME) . ".xlsx";
         $xlsxOutputPath = $this->outputFolder . DIRECTORY_SEPARATOR . $cloudOutputFileName;
 
-        $this->log_message("Démarrage de la conversion MPP vers XLSX");
-        $this->log_message("Fichier source: " . $inputFilePath);
-        $this->log_message("Destination après conversion: " . $xlsxOutputPath);
-        $this->log_message("Stockage cible: " . $this->storageName);
-        $this->log_message("Nom du fichier dans le cloud: " . $cloudFileName);
-        $this->log_message("Nom du fichier converti: " . $cloudOutputFileName);
+
 
         try {
             // 1. Télécharger le fichier vers le cloud
-            $this->log_message("Téléchargement du fichier vers le cloud...");
+
             $uploadRequest = new \GroupDocs\Conversion\Model\Requests\UploadFileRequest(
                 $cloudFileName,
                 $inputFilePath,
@@ -109,10 +104,9 @@ class MppConverterModel {
             );
 
             $uploadResult = $this->fileApi->uploadFile($uploadRequest);
-            $this->log_message("Fichier téléchargé avec succès vers le cloud");
+
 
             // 2. Configurer les paramètres pour la conversion en xlsx
-            $this->log_message("Configuration des paramètres de conversion en xlsx...");
             $settings = new \GroupDocs\Conversion\Model\ConvertSettings();
             $settings->setStorageName($this->storageName);
             $settings->setFilePath($cloudFileName);
@@ -120,18 +114,18 @@ class MppConverterModel {
             $settings->setOutputPath($cloudOutputFileName);
 
             // 3. Lancer la conversion
-            $this->log_message("Démarrage de la conversion en xlsx...");
+
             $result = $this->convertApi->convertDocument(
                 new \GroupDocs\Conversion\Model\Requests\ConvertDocumentRequest($settings)
             );
-            $this->log_message("Conversion en xlsx terminée");
+
 
             // 4. Attendre que la conversion soit terminée
-            $this->log_message("Attente de 15 secondes pour s'assurer que la conversion est terminée...");
+
             sleep(15);
 
             // 5. Télécharger le fichier xlsx converti
-            $this->log_message("Téléchargement du fichier xlsx converti...");
+
             $downloadxlsxRequest = new \GroupDocs\Conversion\Model\Requests\DownloadFileRequest(
                 $cloudOutputFileName,
                 $this->storageName,
@@ -139,18 +133,17 @@ class MppConverterModel {
             );
 
             $xlsxResponse = $this->fileApi->downloadFile($downloadxlsxRequest);
-            $this->log_message("Fichier xlsx téléchargé depuis le cloud avec succès");
+
 
             // 6. Enregistrer le fichier xlsx localement
-            $this->log_message("Enregistrement du fichier xlsx localement...");
+
             copy($xlsxResponse->getPathName(), $xlsxOutputPath);
-            $this->log_message("Fichier xlsx enregistré avec succès dans: " . $xlsxOutputPath);
+
 
             // 7. Vérifier si le fichier xlsx a été correctement enregistré
             if (file_exists($xlsxOutputPath)) {
                 $xlsxSize = filesize($xlsxOutputPath);
-                $this->log_message("Taille du fichier xlsx: " . $xlsxSize . " octets");
-                $this->log_message("CONVERSION xlsx RÉUSSIE!");
+
 
                 return [
                     'success' => true,
@@ -160,7 +153,7 @@ class MppConverterModel {
                     'size' => $xlsxSize
                 ];
             } else {
-                $this->log_message("ERREUR: Le fichier xlsx n'a pas été trouvé sur le disque local");
+
                 return [
                     'success' => false,
                     'message' => "ERREUR: Le fichier xlsx n'a pas été trouvé sur le disque local"
@@ -191,7 +184,7 @@ class MppConverterModel {
             ];
         }
 
-        $this->log_message("Fin du processus de conversion");
+
     }
 
     /**

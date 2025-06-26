@@ -7,9 +7,7 @@ namespace modules\blog\models;
  * Cette classe gère l'analyse de la charge de travail à partir des données
  * récupérées depuis la base de données via ImportModel.
  *
- * VERSION REFACTORISÉE : Sélection libre de période avec affichage par semaines
- * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
- * VERSION MISE À JOUR : Ajout CHAUDQ et SOUDQ dans la catégorie Production
+ * Les graphiques affichent maintenant des moyennes par semaine
  */
 class ChargeModel {
     /**
@@ -70,7 +68,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 NOUVELLE MÉTHODE : Récupère les données quotidiennes pour une période libre
+     *Récupère les données quotidiennes pour une période libre
      *
      * @param string $dateDebut Date de début de la période (format Y-m-d)
      * @param string $dateFin Date de fin de la période (format Y-m-d)
@@ -129,7 +127,7 @@ class ChargeModel {
 
         echo "<script>console.log('[ChargeModel] Données trouvées pour cette période: " . count($donneesPeriode) . "');</script>";
 
-        // 🆕 MODIFICATION : Convertir en format graphique par semaines au lieu de jours
+        //Convertir en format graphique par semaines au lieu de jours
         $graphiquesData = $this->preparePeriodGraphicsDataWeekly($donneesPeriode, $debutPeriode, $finPeriode);
 
         return [
@@ -142,8 +140,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 NOUVELLE MÉTHODE : Prépare les données graphiques par semaines pour une période libre
-     * 🔄 MISE À JOUR : Ajout CHAUDQ et SOUDQ dans la catégorie Production
+     *Prépare les données graphiques par semaines pour une période libre
      *
      * @param array $donneesPeriode Données de la période
      * @param \DateTime $debutPeriode Date de début
@@ -153,7 +150,6 @@ class ChargeModel {
     private function preparePeriodGraphicsDataWeekly($donneesPeriode, $debutPeriode, $finPeriode) {
         echo "<script>console.log('[ChargeModel] === PRÉPARATION DONNÉES GRAPHIQUES PAR SEMAINES ===');</script>";
 
-        // 🔄 MAPPING MIS À JOUR : Ajout CHAUDQ et SOUDQ dans la production
         $mappingProcessus = [
             'production' => ['CHAUDNQ', 'CHAUDQ', 'SOUDNQ', 'SOUDQ', 'CT'],
             'etude' => ['CALC', 'PROJ'],
@@ -163,19 +159,19 @@ class ChargeModel {
 
         echo "<script>console.log('[ChargeModel] ✅ MISE À JOUR: Production inclut maintenant CHAUDQ et SOUDQ');</script>";
 
-        // 🆕 ÉTAPE 1 : Calculer d'abord les données par jour (comme avant)
+        //ÉTAPE 1 : Calculer d'abord les données par jour (comme avant)
         $joursOuvres = $this->calculateWorkingDaysBetween($debutPeriode, $finPeriode);
         $nombreJours = count($joursOuvres);
 
         echo "<script>console.log('[ChargeModel] Jours ouvrés à traiter: " . $nombreJours . "');</script>";
 
-        // 🔄 INITIALISATION MISE À JOUR : 5 processus au lieu de 3 pour la production
+        //INITIALISATION MISE À JOUR : 5 processus au lieu de 3 pour la production
         $donneesParJour = [
             'production' => [
                 'CHAUDNQ' => array_fill(0, $nombreJours, 0),
-                'CHAUDQ' => array_fill(0, $nombreJours, 0),    // ✅ NOUVEAU
+                'CHAUDQ' => array_fill(0, $nombreJours, 0),
                 'SOUDNQ' => array_fill(0, $nombreJours, 0),
-                'SOUDQ' => array_fill(0, $nombreJours, 0),     // ✅ NOUVEAU
+                'SOUDQ' => array_fill(0, $nombreJours, 0),
                 'CT' => array_fill(0, $nombreJours, 0)
             ],
             'etude' => [
@@ -228,7 +224,7 @@ class ChargeModel {
             }
         }
 
-        // 🆕 ÉTAPE 2 : Grouper les données par semaines et calculer les moyennes
+        //ÉTAPE 2 : Grouper les données par semaines et calculer les moyennes
         echo "<script>console.log('[ChargeModel] === GROUPEMENT PAR SEMAINES ===');</script>";
 
         $donneesParSemaine = $this->groupDataByWeeks($donneesParJour, $joursOuvres, $mappingProcessus);
@@ -242,13 +238,13 @@ class ChargeModel {
 
         // Ajouter les labels et métadonnées aux données
         $graphiquesData = array_merge($donneesParSemaine, [
-            'semaines_labels' => $semainesLabels, // 🆕 Labels de semaines au lieu de jours
+            'semaines_labels' => $semainesLabels, //Labels de semaines au lieu de jours
             'periode_info' => [
                 'debut' => $debutPeriode->format('d/m/Y'),
                 'fin' => $finPeriode->format('d/m/Y'),
                 'nombre_jours' => $nombreJours,
-                'nombre_semaines' => $nombreSemaines, // 🆕 Ajout du nombre de semaines
-                'largeur_graphique' => $largeurGraphique // 🆕 Largeur adaptée aux semaines
+                'nombre_semaines' => $nombreSemaines, //Ajout du nombre de semaines
+                'largeur_graphique' => $largeurGraphique //Largeur adaptée aux semaines
             ]
         ]);
 
@@ -273,8 +269,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 NOUVELLE MÉTHODE : Groupe les données par semaines et calcule les moyennes
-     * 🔄 MISE À JOUR : Compatible avec les nouveaux processus CHAUDQ/SOUDQ
+     *Groupe les données par semaines et calcule les moyennes
      *
      * @param array $donneesParJour Données organisées par jour
      * @param array $joursOuvres Liste des jours ouvrés
@@ -309,13 +304,12 @@ class ChargeModel {
 
         echo "<script>console.log('[ChargeModel] Nombre de semaines détectées: " . count($semainesData) . "');</script>";
 
-        // 🔄 INITIALISATION MISE À JOUR : Structure étendue pour les nouveaux processus
         $donneesParSemaine = [
             'production' => [
                 'CHAUDNQ' => [],
-                'CHAUDQ' => [],    // ✅ NOUVEAU
+                'CHAUDQ' => [],
                 'SOUDNQ' => [],
-                'SOUDQ' => [],     // ✅ NOUVEAU
+                'SOUDQ' => [],
                 'CT' => []
             ],
             'etude' => [
@@ -343,7 +337,7 @@ class ChargeModel {
                             $sommeSemaine += $donneesParJour[$categorie][$processus][$indexJour];
                         }
 
-                        // 🎯 DIVISION PAR 5 (toujours, même pour semaines incomplètes)
+                        //DIVISION PAR 5 (toujours, même pour semaines incomplètes)
                         $moyenneSemaine = $sommeSemaine / 5;
 
                         $donneesParSemaine[$categorie][$processus][] = $moyenneSemaine;
@@ -360,7 +354,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 NOUVELLE MÉTHODE : Génère les labels pour les semaines
+     *Génère les labels pour les semaines
      *
      * @param array $joursOuvres Liste des jours ouvrés
      * @return array Labels des semaines
@@ -403,7 +397,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 Calcule tous les jours ouvrés entre deux dates (exclut weekends)
+     *Calcule tous les jours ouvrés entre deux dates (exclut weekends)
      *
      * @param \DateTime $dateDebut Date de début
      * @param \DateTime $dateFin Date de fin
@@ -425,7 +419,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 Vérifie si un jour est un jour ouvré (exclut samedi et dimanche)
+     *Vérifie si un jour est un jour ouvré (exclut samedi et dimanche)
      *
      * @param \DateTime $date Date à vérifier
      * @return bool True si jour ouvré, false si weekend
@@ -436,8 +430,7 @@ class ChargeModel {
     }
 
     /**
-     * 🆕 Obtient la plage de dates disponibles dans les données
-     * Utile pour définir min/max des inputs date de l'interface
+     *Obtient la plage de dates disponibles dans les données
      *
      * @return array Informations sur la plage de dates disponibles
      */

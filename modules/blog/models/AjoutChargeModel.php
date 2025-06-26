@@ -34,11 +34,11 @@ class AjoutChargeModel {
         // Valider les données
         $validation = $this->validerDonnees($donnees);
         if (!$validation['success']) {
-            $this->console_log("❌ Validation échouée: " . $validation['message']);
+            $this->console_log("Validation échouée: " . $validation['message']);
             return $validation;
         }
 
-        $this->console_log("✅ Validation réussie");
+        $this->console_log("Validation réussie");
 
         try {
             // Préparer la requête d'insertion
@@ -55,7 +55,7 @@ class AjoutChargeModel {
             $this->console_log("Exécution de la requête SQL...");
             $stmt->execute();
 
-            $this->console_log("✅ Charge ajoutée avec succès en base de données");
+            $this->console_log("Charge ajoutée avec succès en base de données");
 
             return [
                 'success' => true,
@@ -63,7 +63,7 @@ class AjoutChargeModel {
             ];
 
         } catch (\PDOException $e) {
-            $this->console_log("💥 ERREUR SQL: " . $e->getMessage());
+            $this->console_log("ERREUR SQL: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => "Erreur lors de l'ajout en base de données : " . $e->getMessage()
@@ -131,7 +131,7 @@ class AjoutChargeModel {
             ];
         }
 
-        $this->console_log("✅ Toutes les validations sont OK");
+        $this->console_log("Toutes les validations sont OK");
 
         return [
             'success' => true,
@@ -220,11 +220,11 @@ class AjoutChargeModel {
         // Valider les données (même validation que l'ajout)
         $validation = $this->validerDonnees($donnees);
         if (!$validation['success']) {
-            $this->console_log("❌ Validation échouée: " . $validation['message']);
+            $this->console_log("Validation échouée: " . $validation['message']);
             return $validation;
         }
 
-        $this->console_log("✅ Validation réussie");
+        $this->console_log("Validation réussie");
 
         try {
             // Vérifier si la ligne existe exactement
@@ -243,7 +243,7 @@ class AjoutChargeModel {
             $this->console_log("Lignes trouvées correspondantes: " . $count);
 
             if ($count === 0) {
-                $this->console_log("❌ Aucune ligne correspondante trouvée");
+                $this->console_log("Aucune ligne correspondante trouvée");
                 return [
                     'success' => false,
                     'message' => "Aucune charge correspondante trouvée en base de données. Vérifiez que tous les champs correspondent exactement à une ligne existante."
@@ -251,7 +251,7 @@ class AjoutChargeModel {
             }
 
             if ($count > 1) {
-                $this->console_log("⚠️ Plusieurs lignes correspondantes trouvées: " . $count);
+                $this->console_log("Plusieurs lignes correspondantes trouvées: " . $count);
                 // On peut choisir de supprimer toutes les lignes correspondantes ou s'arrêter
                 // Pour la sécurité, on informe l'utilisateur
             }
@@ -269,7 +269,7 @@ class AjoutChargeModel {
             $rowsAffected = $stmtDelete->rowCount();
 
             if ($deleteSuccess && $rowsAffected > 0) {
-                $this->console_log("✅ Suppression réussie: " . $rowsAffected . " ligne(s) supprimée(s)");
+                $this->console_log("Suppression réussie: " . $rowsAffected . " ligne(s) supprimée(s)");
 
                 $message = "Charge supprimée avec succès : {$donnees['processus']} - {$donnees['tache']} ({$donnees['charge']} personne(s)) le {$donnees['date']}";
                 if ($rowsAffected > 1) {
@@ -282,7 +282,7 @@ class AjoutChargeModel {
                     'rows_deleted' => $rowsAffected
                 ];
             } else {
-                $this->console_log("❌ Échec de la suppression");
+                $this->console_log("Échec de la suppression");
                 return [
                     'success' => false,
                     'message' => "Erreur lors de la suppression en base de données."
@@ -290,7 +290,7 @@ class AjoutChargeModel {
             }
 
         } catch (\PDOException $e) {
-            $this->console_log("💥 ERREUR SQL: " . $e->getMessage());
+            $this->console_log("ERREUR SQL: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => "Erreur lors de la suppression en base de données : " . $e->getMessage()

@@ -7,8 +7,6 @@ namespace modules\blog\models;
  * Cette classe gère la lecture automatique des dossiers de planification,
  * la conversion des fichiers MPP en XLSX, et l'importation des données
  * dans la base de données.
- *
- * VERSION RÉCURSIVE : Explore tous les sous-dossiers de /uploads et /converted
  */
 class LectureDossierModel {
 
@@ -20,10 +18,6 @@ class LectureDossierModel {
      * @return array Résultat de la suppression de fichier
      */
     public function deleteConvertedFileByNumber($numeroAffaire) {
-        $this->console_log("=== DÉBUT SUPPRESSION FICHIER XLSX ===");
-        $this->console_log("Numéro d'affaire recherché: " . $numeroAffaire);
-        $this->log_message("=== SUPPRESSION FICHIER XLSX PAR NUMÉRO D'AFFAIRE ===");
-        $this->log_message("Recherche du fichier XLSX pour: " . $numeroAffaire);
 
         $result = [
             'success' => false,
@@ -39,45 +33,38 @@ class LectureDossierModel {
             $foundFile = $this->findXlsxFileByNumber($numeroAffaire);
 
             if (!$foundFile) {
-                $this->console_log("❌ Aucun fichier XLSX trouvé pour le numéro: " . $numeroAffaire);
-                $this->log_message("❌ Aucun fichier XLSX trouvé pour le numéro: " . $numeroAffaire);
+
 
                 $result['message'] = "Aucun fichier XLSX converti trouvé contenant le numéro d'affaire \"$numeroAffaire\" dans le dossier converted.";
                 return $result;
             }
 
-            $this->console_log(" Fichier XLSX trouvé: " . $foundFile['name']);
-            $this->log_message(" Fichier XLSX trouvé: " . $foundFile['name']);
+
             $result['file_found'] = $foundFile;
 
             // Supprimer le fichier XLSX
-            $this->console_log("=== SUPPRESSION DU FICHIER XLSX ===");
-            $this->log_message("Suppression du fichier: " . $foundFile['name']);
+
 
             if (!unlink($foundFile['path'])) {
-                $this->console_log(" Erreur lors de la suppression du fichier: " . $foundFile['name']);
-                $this->log_message(" Erreur lors de la suppression du fichier: " . $foundFile['name']);
+
 
                 $result['message'] = "Erreur lors de la suppression du fichier \"" . $foundFile['name'] . "\". Vérifiez les permissions.";
                 return $result;
             }
 
-            $this->console_log("✅ Fichier supprimé avec succès: " . $foundFile['name']);
-            $this->log_message("✅ Fichier supprimé avec succès: " . $foundFile['name']);
+
 
             $result['success'] = true;
             $result['deleted_file'] = $foundFile;
             $result['message'] = "Fichier \"" . $foundFile['name'] . "\" supprimé avec succès.";
 
         } catch (\Exception $e) {
-            $this->console_log("💥 EXCEPTION: " . $e->getMessage());
-            $this->log_message("💥 EXCEPTION: " . $e->getMessage());
+
 
             $result['message'] = "Erreur inattendue lors de la suppression : " . $e->getMessage();
         }
 
-        $this->console_log("=== FIN SUPPRESSION FICHIER XLSX ===");
-        $this->log_message("=== FIN SUPPRESSION FICHIER XLSX ===");
+
 
         return $result;
     }
@@ -151,7 +138,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Fonction récursive pour explorer tous les dossiers XLSX
+     * Fonction récursive pour explorer tous les dossiers XLSX
      *
      * @param string $directory Dossier à explorer
      * @param string $numeroAffaire Numéro d'affaire recherché
@@ -162,15 +149,15 @@ class LectureDossierModel {
     private function searchXlsxRecursively($directory, $numeroAffaire, $maxDepth = 3, $currentDepth = 0) {
         // Sécurité : limiter la profondeur
         if ($currentDepth >= $maxDepth) {
-            $this->console_log("⚠️ Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
+            $this->console_log(" Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
             return null;
         }
 
         $indentLevel = str_repeat("  ", $currentDepth);
-        $this->console_log($indentLevel . "🔍 Exploration XLSX niveau $currentDepth: " . basename($directory));
+        $this->console_log($indentLevel . " Exploration XLSX niveau $currentDepth: " . basename($directory));
 
         if (!is_dir($directory) || !is_readable($directory)) {
-            $this->console_log($indentLevel . "⚠️ Dossier inaccessible: " . $directory);
+            $this->console_log($indentLevel . " Dossier inaccessible: " . $directory);
             return null;
         }
 
@@ -185,10 +172,10 @@ class LectureDossierModel {
 
             // Si c'est un fichier XLSX, vérifier le numéro
             if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'xlsx') {
-                $this->console_log($indentLevel . "  📄 Fichier XLSX: " . $item);
+                $this->console_log($indentLevel . " Fichier XLSX: " . $item);
 
                 if ($this->fileContainsNumber($item, $numeroAffaire)) {
-                    $this->console_log($indentLevel . "  ✅ MATCH XLSX TROUVÉ! Numéro dans: " . $item);
+                    $this->console_log($indentLevel . " MATCH XLSX TROUVÉ! Numéro dans: " . $item);
 
                     return [
                         'name' => $item,
@@ -203,7 +190,7 @@ class LectureDossierModel {
             }
             // Si c'est un dossier, explorer récursivement
             elseif (is_dir($itemPath)) {
-                $this->console_log($indentLevel . "  📁 Sous-dossier XLSX: " . $item);
+                $this->console_log($indentLevel . " Sous-dossier XLSX: " . $item);
 
                 $result = $this->searchXlsxRecursively($itemPath, $numeroAffaire, $maxDepth, $currentDepth + 1);
                 if ($result) {
@@ -256,16 +243,12 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Lance la conversion d'un fichier spécifique par numéro d'affaire
+     * Lance la conversion d'un fichier spécifique par numéro d'affaire
      *
      * @param string $numeroAffaire Numéro d'affaire à rechercher (ex: "24-09_0009")
      * @return array Résultat détaillé du processus
      */
     public function processFileByNumber($numeroAffaire) {
-        $this->console_log("=== DÉBUT PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
-        $this->console_log("Numéro d'affaire recherché: " . $numeroAffaire);
-        $this->log_message("=== CONVERSION CIBLÉE PAR NUMÉRO D'AFFAIRE ===");
-        $this->log_message("Recherche du fichier pour: " . $numeroAffaire);
 
         $result = [
             'success' => false,
@@ -278,56 +261,48 @@ class LectureDossierModel {
 
         try {
             // Étape 1 : Rechercher le fichier MPP correspondant
-            $this->console_log("=== ÉTAPE 1: RECHERCHE DU FICHIER MPP ===");
+
             $foundFile = $this->findMppFileByNumber($numeroAffaire);
 
             if (!$foundFile) {
-                $this->console_log("❌ Aucun fichier trouvé pour le numéro: " . $numeroAffaire);
-                $this->log_message("❌ Aucun fichier trouvé pour le numéro: " . $numeroAffaire);
+
 
                 $result['message'] = "Aucun fichier MPP trouvé contenant le numéro d'affaire \"$numeroAffaire\" dans le dossier uploads.";
                 return $result;
             }
 
-            $this->console_log("✅ Fichier trouvé: " . $foundFile['name']);
-            $this->log_message("✅ Fichier trouvé: " . $foundFile['name']);
+
             $result['file_found'] = $foundFile;
 
             // Étape 2 : Convertir le fichier MPP vers XLSX
-            $this->console_log("=== ÉTAPE 2: CONVERSION MPP → XLSX ===");
-            $this->log_message("Étape 2 : Conversion du fichier " . $foundFile['name']);
+
 
             $conversionResult = $this->mppConverter->convertMppToXlsx($foundFile['path']);
             $result['conversion'] = $conversionResult;
 
             if (!$conversionResult['success']) {
-                $this->console_log("❌ Erreur de conversion: " . $conversionResult['message']);
-                $this->log_message("❌ Erreur de conversion: " . $conversionResult['message']);
+
 
                 $result['message'] = "Erreur lors de la conversion du fichier \"" . $foundFile['name'] . "\" : " . $conversionResult['message'];
                 return $result;
             }
 
-            $this->console_log("✅ Conversion réussie: " . $conversionResult['outputFile']);
-            $this->log_message("✅ Conversion réussie: " . $conversionResult['outputFile']);
+
 
             // Étape 3 : Importer le fichier XLSX en base de données
-            $this->console_log("=== ÉTAPE 3: IMPORTATION XLSX → BASE ===");
-            $this->log_message("Étape 3 : Importation du fichier " . $conversionResult['outputFile']);
+
 
             $importationResult = $this->excelToBdModel->importExcelToDatabase($conversionResult['outputPath']);
             $result['importation'] = $importationResult;
 
             if (!$importationResult['success']) {
-                $this->console_log("❌ Erreur d'importation: " . $importationResult['message']);
-                $this->log_message("❌ Erreur d'importation: " . $importationResult['message']);
+
 
                 $result['message'] = "Conversion réussie mais erreur lors de l'importation : " . $importationResult['message'];
                 return $result;
             }
 
-            $this->console_log("✅ Importation réussie: " . $importationResult['importCount'] . " entrées");
-            $this->log_message("✅ Importation réussie: " . $importationResult['importCount'] . " entrées");
+
 
             // Succès complet
             $result['success'] = true;
@@ -343,36 +318,32 @@ class LectureDossierModel {
                 $importationResult['errorCount']
             );
 
-            $this->console_log("🎉 PROCESSUS TERMINÉ AVEC SUCCÈS");
-            $this->log_message("🎉 PROCESSUS TERMINÉ AVEC SUCCÈS");
+
 
         } catch (\Exception $e) {
-            $this->console_log("💥 EXCEPTION: " . $e->getMessage());
-            $this->log_message("💥 EXCEPTION: " . $e->getMessage());
+
 
             $result['message'] = "Erreur inattendue lors du processus : " . $e->getMessage();
         }
 
-        $this->console_log("=== FIN PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
-        $this->log_message("=== FIN PROCESSUS PAR NUMÉRO D'AFFAIRE ===");
+
 
         return $result;
     }
 
     /**
-     * 🆕 Recherche un fichier MPP par numéro d'affaire (VERSION RÉCURSIVE)
+     * Recherche un fichier MPP par numéro d'affaire (VERSION RÉCURSIVE)
      * Explore tous les sous-dossiers de /uploads avec limite de profondeur
      *
      * @param string $numeroAffaire Numéro d'affaire à rechercher
      * @return array|null Informations du fichier trouvé ou null
      */
     private function findMppFileByNumber($numeroAffaire) {
-        $this->console_log("=== RECHERCHE RÉCURSIVE FICHIER PAR NUMÉRO ===");
-        $this->console_log("Recherche de: " . $numeroAffaire);
+
 
         // Vérifier que le dossier source existe
         if (!is_dir(self::MPP_SOURCE_FOLDER)) {
-            $this->console_log("❌ Dossier source introuvable: " . self::MPP_SOURCE_FOLDER);
+
             return null;
         }
 
@@ -384,16 +355,16 @@ class LectureDossierModel {
             $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
             $location = $relativePath ? "dans sous-dossier: " . $relativePath : "à la racine";
 
-            $this->console_log("🎯 TROUVÉ! Fichier: " . $foundFile['name'] . " " . $location);
+
         } else {
-            $this->console_log("❌ Aucun fichier MPP trouvé contenant le numéro: " . $numeroAffaire);
+
         }
 
         return $foundFile;
     }
 
     /**
-     * 🆕 Fonction récursive pour explorer tous les dossiers MPP
+     * Fonction récursive pour explorer tous les dossiers MPP
      * Recherche avec limite de profondeur pour éviter les boucles infinies
      *
      * @param string $directory Dossier à explorer
@@ -405,15 +376,15 @@ class LectureDossierModel {
     private function searchMppRecursively($directory, $numeroAffaire, $maxDepth = 5, $currentDepth = 0) {
         // Sécurité : limiter la profondeur pour éviter les boucles infinies et les performances dégradées
         if ($currentDepth >= $maxDepth) {
-            $this->console_log("⚠️ Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
+            $this->console_log(" Profondeur maximale atteinte (" . $maxDepth . ") pour: " . basename($directory));
             return null;
         }
 
         $indentLevel = str_repeat("  ", $currentDepth); // Indentation pour le debug
-        $this->console_log($indentLevel . "🔍 Exploration niveau $currentDepth: " . basename($directory));
+        $this->console_log($indentLevel . " Exploration niveau $currentDepth: " . basename($directory));
 
         if (!is_dir($directory) || !is_readable($directory)) {
-            $this->console_log($indentLevel . "⚠️ Dossier inaccessible: " . $directory);
+            $this->console_log($indentLevel . " Dossier inaccessible: " . $directory);
             return null;
         }
 
@@ -431,10 +402,10 @@ class LectureDossierModel {
             // Si c'est un fichier MPP, vérifier le numéro
             if (is_file($itemPath) && strtolower(pathinfo($item, PATHINFO_EXTENSION)) === 'mpp') {
                 $fileCount++;
-                $this->console_log($indentLevel . "  📄 Fichier MPP: " . $item);
+                $this->console_log($indentLevel . " Fichier MPP: " . $item);
 
                 if ($this->fileContainsNumber($item, $numeroAffaire)) {
-                    $this->console_log($indentLevel . "  ✅ MATCH TROUVÉ! Numéro dans: " . $item);
+                    $this->console_log($indentLevel . " MATCH TROUVÉ! Numéro dans: " . $item);
 
                     return [
                         'name' => $item,
@@ -446,13 +417,13 @@ class LectureDossierModel {
                         'relative_path' => str_replace(self::MPP_SOURCE_FOLDER, '', $directory)
                     ];
                 } else {
-                    $this->console_log($indentLevel . "  ❌ Pas de match dans: " . $item);
+                    $this->console_log($indentLevel . " Pas de match dans: " . $item);
                 }
             }
             // Si c'est un dossier, explorer récursivement
             elseif (is_dir($itemPath)) {
                 $dirCount++;
-                $this->console_log($indentLevel . "  📁 Sous-dossier détecté: " . $item);
+                $this->console_log($indentLevel . " Sous-dossier détecté: " . $item);
 
                 $result = $this->searchMppRecursively($itemPath, $numeroAffaire, $maxDepth, $currentDepth + 1);
                 if ($result) {
@@ -461,12 +432,12 @@ class LectureDossierModel {
             }
         }
 
-        $this->console_log($indentLevel . "📊 Niveau $currentDepth terminé - Fichiers MPP: $fileCount, Sous-dossiers: $dirCount");
+        $this->console_log($indentLevel . " Niveau $currentDepth terminé - Fichiers MPP: $fileCount, Sous-dossiers: $dirCount");
         return null; // Rien trouvé dans ce dossier et ses sous-dossiers
     }
 
     /**
-     * 🆕 Vérifie si un nom de fichier contient le numéro d'affaire
+     * Vérifie si un nom de fichier contient le numéro d'affaire
      *
      * @param string $fileName Nom du fichier
      * @param string $numeroAffaire Numéro d'affaire à chercher
@@ -483,28 +454,7 @@ class LectureDossierModel {
         return $found;
     }
 
-    /**
-     * Lance le processus complet de lecture, conversion et importation
-     * 🗑️ OBSOLÈTE - Remplacé par la conversion ciblée par numéro d'affaire
-     *
-     * @deprecated Utiliser processFileByNumber() à la place
-     * @return array Résultat détaillé du processus
-     */
-    public function processAllFiles() {
-        // Méthode conservée pour compatibilité mais vidée
-        return [
-            'conversion' => [],
-            'importation' => [],
-            'summary' => [
-                'mpp_found' => 0,
-                'mpp_converted' => 0,
-                'mpp_errors' => 0,
-                'xlsx_found' => 0,
-                'xlsx_imported' => 0,
-                'xlsx_errors' => 0
-            ]
-        ];
-    }
+
 
     /**
      * S'assure que les dossiers nécessaires existent
@@ -549,7 +499,7 @@ class LectureDossierModel {
     }
 
     /**
-     * Retourne la liste des fichiers MPP dans le dossier source (VERSION RÉCURSIVE)
+     * Retourne la liste des fichiers MPP dans le dossier source
      * Explore tous les sous-dossiers de /uploads
      *
      * @return array Liste des fichiers MPP
@@ -578,7 +528,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Collecte récursivement tous les fichiers MPP
+     * Collecte récursivement tous les fichiers MPP
      *
      * @param string $directory Dossier à explorer
      * @param array &$mppFiles Tableau de fichiers MPP (passé par référence)
@@ -659,7 +609,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Collecte récursivement tous les fichiers XLSX
+     * Collecte récursivement tous les fichiers XLSX
      *
      * @param string $directory Dossier à explorer
      * @param array &$xlsxFiles Tableau de fichiers XLSX (passé par référence)
@@ -711,7 +661,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Retourne la liste détaillée des fichiers XLSX avec numéro d'affaire et nom extrait (VERSION RÉCURSIVE)
+     * Retourne la liste détaillée des fichiers XLSX avec numéro d'affaire et nom extrait
      * Explore tous les sous-dossiers de /converted
      *
      * @return array Liste des fichiers XLSX avec détails (numéro d'affaire, nom propre, etc.)
@@ -772,7 +722,7 @@ class LectureDossierModel {
     }
 
     /**
-     * 🆕 Extrait le numéro d'affaire et le nom propre d'un nom de fichier
+     * Extrait le numéro d'affaire et le nom propre d'un nom de fichier
      *
      * @param string $filename Nom du fichier (ex: "AFF24-09_0009 planning en cours.xlsx")
      * @return array Détails extraits

@@ -10,10 +10,8 @@ use Amenadiel\JpGraph\Plot\BarPlot;
  *
  * Cette classe gère la génération des graphiques JPGraph pour l'analyse de charge.
  *
- * VERSION REFACTORISÉE : Génération pour période libre avec affichage par semaines
- * Les graphiques affichent maintenant des moyennes par semaine au lieu de données par jour
- * Les graphiques vides sont affichés au lieu d'images d'erreur
- * VERSION MISE À JOUR : Ajout CHAUDQ et SOUDQ avec couleurs distinctes
+ * Les graphiques affichent des moyennes par semaine
+ * Les graphiques vides sont affichés
  */
 class GraphGeneratorModel {
 
@@ -43,7 +41,7 @@ class GraphGeneratorModel {
     const CHART_HEIGHT = 450;
 
     /**
-     * 🆕 Largeur par semaine (pour calcul dynamique)
+     * Largeur par semaine (pour calcul dynamique)
      */
     const WIDTH_PER_WEEK = 120;
 
@@ -84,7 +82,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère les graphiques pour une période libre (nombre de semaines variable)
+     * Génère les graphiques pour une période libre (nombre de semaines variable)
      *
      * @param array $periodData Données formatées pour la période sélectionnée (par semaines)
      * @return array Chemins des images générées pour chaque catégorie
@@ -98,7 +96,7 @@ class GraphGeneratorModel {
             return $this->generateErrorImages("JPGraph non installé ou non chargé");
         }
 
-        // 🆕 NETTOYAGE COMPLET avant génération
+        // NETTOYAGE COMPLET avant génération
         $this->cleanupAllCharts();
 
         $this->console_log("Données reçues pour la période: " . json_encode(array_keys($periodData)));
@@ -112,7 +110,7 @@ class GraphGeneratorModel {
         $periodeInfo = $periodData['periode_info'];
         $this->console_log("Période: " . $periodeInfo['debut'] . " → " . $periodeInfo['fin'] . " (" . ($periodeInfo['nombre_semaines'] ?? 'N/A') . " semaines)");
 
-        // 🆕 Vérifier la présence des labels de semaines
+        // Vérifier la présence des labels de semaines
         if (!isset($periodData['semaines_labels'])) {
             $this->console_log("ERREUR: Labels semaines_labels manquants");
             return $this->generateErrorImages("Labels de semaines manquants");
@@ -128,7 +126,7 @@ class GraphGeneratorModel {
         ];
 
         try {
-            // 🆕 Calculer la largeur dynamique du graphique (basé sur les semaines)
+            // Calculer la largeur dynamique du graphique (basé sur les semaines)
             $nombreSemaines = $periodeInfo['nombre_semaines'] ?? count($periodData['semaines_labels']);
             $chartWidth = $this->calculateChartWidthWeekly($nombreSemaines);
             $this->console_log("Largeur calculée pour " . $nombreSemaines . " semaines: " . $chartWidth . "px");
@@ -164,7 +162,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Calcule la largeur optimale du graphique selon le nombre de semaines
+     * Calcule la largeur optimale du graphique selon le nombre de semaines
      *
      * @param int $nombreSemaines Nombre de semaines dans la période
      * @return int Largeur en pixels
@@ -182,8 +180,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🔄 MISE À JOUR : Génère le graphique Production pour une période libre (par semaines)
-     * ✅ NOUVEAU : Ajout CHAUDQ et SOUDQ avec couleurs bien distinctes
+     * Génère le graphique Production pour une période libre (par semaines)
      *
      * @param array $data Données des graphiques de la période (moyennes par semaines)
      * @param int $chartWidth Largeur calculée du graphique
@@ -196,30 +193,30 @@ class GraphGeneratorModel {
         $filename = 'production_weekly_' . date('Y-m-d_H-i-s') . '.png';
         $filepath = self::CHARTS_FOLDER . $filename;
 
-        // 🔄 RÉCUPÉRATION 5 DATASETS au lieu de 3
+        // RÉCUPÉRATION 5 DATASETS
         $chaudnq_data = $data['production']['CHAUDNQ'] ?? [];  // Chaudronnerie Non Qualifiée
-        $chaudq_data = $data['production']['CHAUDQ'] ?? [];    // ✅ NOUVEAU: Chaudronnerie Qualifiée
+        $chaudq_data = $data['production']['CHAUDQ'] ?? [];    // Chaudronnerie Qualifiée
         $soudnq_data = $data['production']['SOUDNQ'] ?? [];    // Soudure Non Qualifiée
-        $soudq_data = $data['production']['SOUDQ'] ?? [];      // ✅ NOUVEAU: Soudure Qualifiée
+        $soudq_data = $data['production']['SOUDQ'] ?? [];      // Soudure Qualifiée
         $ct_data = $data['production']['CT'] ?? [];            // Contrôle
 
         // Si pas de données, créer des arrays vides avec la bonne taille
         $nombreSemaines = count($data['semaines_labels'] ?? []);
         if (empty($chaudnq_data)) $chaudnq_data = array_fill(0, max(1, $nombreSemaines), 0);
-        if (empty($chaudq_data)) $chaudq_data = array_fill(0, max(1, $nombreSemaines), 0);      // ✅ NOUVEAU
+        if (empty($chaudq_data)) $chaudq_data = array_fill(0, max(1, $nombreSemaines), 0);
         if (empty($soudnq_data)) $soudnq_data = array_fill(0, max(1, $nombreSemaines), 0);
-        if (empty($soudq_data)) $soudq_data = array_fill(0, max(1, $nombreSemaines), 0);        // ✅ NOUVEAU
+        if (empty($soudq_data)) $soudq_data = array_fill(0, max(1, $nombreSemaines), 0);
         if (empty($ct_data)) $ct_data = array_fill(0, max(1, $nombreSemaines), 0);
 
-        // 🔄 LOGGING ÉTENDU pour les 5 processus
+        // LOGGING ÉTENDU pour les 5 processus
         $this->console_log("Chaudronnerie NQ (" . count($chaudnq_data) . " semaines): " . json_encode(array_slice($chaudnq_data, 0, 3)) . (count($chaudnq_data) > 3 ? '...' : ''));
-        $this->console_log("✅ Chaudronnerie Q (" . count($chaudq_data) . " semaines): " . json_encode(array_slice($chaudq_data, 0, 3)) . (count($chaudq_data) > 3 ? '...' : ''));
+        $this->console_log(" Chaudronnerie Q (" . count($chaudq_data) . " semaines): " . json_encode(array_slice($chaudq_data, 0, 3)) . (count($chaudq_data) > 3 ? '...' : ''));
         $this->console_log("Soudure NQ (" . count($soudnq_data) . " semaines): " . json_encode(array_slice($soudnq_data, 0, 3)) . (count($soudnq_data) > 3 ? '...' : ''));
-        $this->console_log("✅ Soudure Q (" . count($soudq_data) . " semaines): " . json_encode(array_slice($soudq_data, 0, 3)) . (count($soudq_data) > 3 ? '...' : ''));
+        $this->console_log(" Soudure Q (" . count($soudq_data) . " semaines): " . json_encode(array_slice($soudq_data, 0, 3)) . (count($soudq_data) > 3 ? '...' : ''));
         $this->console_log("CT (" . count($ct_data) . " semaines): " . json_encode(array_slice($ct_data, 0, 3)) . (count($ct_data) > 3 ? '...' : ''));
 
         try {
-            // 🔄 CALCUL VALEUR MAX avec les 5 datasets
+            // CALCUL VALEUR MAX avec les 5 datasets
             $maxValue = 0;
             foreach ([$chaudnq_data, $chaudq_data, $soudnq_data, $soudq_data, $ct_data] as $dataset) {
                 if (!empty($dataset)) {
@@ -231,12 +228,12 @@ class GraphGeneratorModel {
             $yMax = max(3, ceil($maxValue * 1.2)); // 20% de marge au-dessus + minimum de 3
             $this->console_log("Valeur max moyennes (5 processus): " . $maxValue . " → Axe Y fixé à: " . $yMax);
 
-            // 🆕 Créer le graphique avec largeur dynamique
+            // Créer le graphique avec largeur dynamique
             $graph = new Graph($chartWidth, self::CHART_HEIGHT);
             $graph->SetScale('textlin', 0, $yMax); // Forcer l'axe Y de 0 à $yMax
             $graph->SetMargin(80, 40, 40, 80);
 
-            // 🆕 Titre et labels adaptés pour les semaines
+            // Titre et labels adaptés pour les semaines
             $periodeInfo = $data['periode_info'];
             $graph->title->Set('Charge Production par Semaine - Période du ' . $periodeInfo['debut'] . ' au ' . $periodeInfo['fin']);
             $graph->title->SetFont(FF_ARIAL, FS_BOLD, 16);
@@ -245,7 +242,7 @@ class GraphGeneratorModel {
             $graph->yaxis->title->Set('Moyenne de personnes par semaine');
             $graph->yaxis->title->SetFont(FF_ARIAL, FS_NORMAL, 12);
 
-            // 🆕 Labels de semaines (générés par ChargeModel)
+            // Labels de semaines (générés par ChargeModel)
             $labels = $data['semaines_labels'] ?? ['Semaine 1'];
             $graph->xaxis->SetTickLabels($labels);
 
@@ -257,38 +254,38 @@ class GraphGeneratorModel {
                 $graph->xaxis->SetLabelAngle(45); // Incliné pour peu de semaines
             }
 
-            // 🎨 CRÉATION DES 5 BARRES AVEC COULEURS BIEN DISTINCTES
+            // CRÉATION DES 5 BARRES AVEC COULEURS BIEN DISTINCTES
             $barplots = [];
 
-            // 🔴 Chaudronnerie Non Qualifiée - ROUGE
+            // Chaudronnerie Non Qualifiée - ROUGE
             $barplot1 = new BarPlot($chaudnq_data);
             $barplot1->SetColor('#D32F2F');       // Rouge foncé
             $barplot1->SetFillColor('#D32F2F');
             $barplot1->SetLegend('Chaudronnerie NQ');
             $barplots[] = $barplot1;
 
-            // 🟠 Chaudronnerie Qualifiée - ORANGE (bien distinct du rouge)
+            // Chaudronnerie Qualifiée - ORANGE (bien distinct du rouge)
             $barplot2 = new BarPlot($chaudq_data);
             $barplot2->SetColor('#FF9800');       // Orange vif
             $barplot2->SetFillColor('#FF9800');
             $barplot2->SetLegend('Chaudronnerie Q');
             $barplots[] = $barplot2;
 
-            // 🔵 Soudure Non Qualifiée - BLEU
+            // Soudure Non Qualifiée - BLEU
             $barplot3 = new BarPlot($soudnq_data);
             $barplot3->SetColor('#1976D2');       // Bleu foncé
             $barplot3->SetFillColor('#1976D2');
             $barplot3->SetLegend('Soudure NQ');
             $barplots[] = $barplot3;
 
-            // 🟣 Soudure Qualifiée - VIOLET (bien distinct du bleu)
+            // Soudure Qualifiée - VIOLET (bien distinct du bleu)
             $barplot4 = new BarPlot($soudq_data);
             $barplot4->SetColor('#9C27B0');       // Violet/Purple
             $barplot4->SetFillColor('#9C27B0');
             $barplot4->SetLegend('Soudure Q');
             $barplots[] = $barplot4;
 
-            // 🟢 Contrôle - VERT
+            // Contrôle - VERT
             $barplot5 = new BarPlot($ct_data);
             $barplot5->SetColor('#4CAF50');       // Vert
             $barplot5->SetFillColor('#4CAF50');
@@ -297,7 +294,7 @@ class GraphGeneratorModel {
 
             $this->console_log("🎨 5 barres créées avec couleurs distinctes: Rouge, Orange, Bleu, Violet, Vert");
 
-            // 🔄 GROUPER LES 5 BARRES côte à côte pour chaque semaine
+            // GROUPER LES 5 BARRES côte à côte pour chaque semaine
             if (count($barplots) > 1) {
                 $groupedBarPlot = new \Amenadiel\JpGraph\Plot\GroupBarPlot($barplots);
                 $graph->Add($groupedBarPlot);
@@ -310,7 +307,7 @@ class GraphGeneratorModel {
 
             // Sauvegarder l'image
             $graph->Stroke($filepath);
-            $this->console_log("✅ Graphique production période libre par semaines sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ") avec 5 processus");
+            $this->console_log(" Graphique production période libre par semaines sauvegardé: " . $filename . " (" . $chartWidth . "x" . self::CHART_HEIGHT . ") avec 5 processus");
             return $filename;
 
         } catch (\Exception $e) {
@@ -320,7 +317,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère le graphique Étude pour une période libre (par semaines)
+     * Génère le graphique Étude pour une période libre (par semaines)
      */
     private function generatePeriodEtudeChartWeekly($data, $chartWidth) {
         $this->console_log("=== GÉNÉRATION GRAPHIQUE ÉTUDE PÉRIODE LIBRE (SEMAINES) ===");
@@ -401,7 +398,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère le graphique Méthode pour une période libre (par semaines)
+     * Génère le graphique Méthode pour une période libre (par semaines)
      */
     private function generatePeriodMethodeChartWeekly($data, $chartWidth) {
         $this->console_log("=== GÉNÉRATION GRAPHIQUE MÉTHODE PÉRIODE LIBRE (SEMAINES) ===");
@@ -463,7 +460,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Génère le graphique Qualité pour une période libre (par semaines)
+     * Génère le graphique Qualité pour une période libre (par semaines)
      */
     private function generatePeriodQualiteChartWeekly($data, $chartWidth) {
         $this->console_log("=== GÉNÉRATION GRAPHIQUE QUALITÉ PÉRIODE LIBRE (SEMAINES) ===");
@@ -544,7 +541,7 @@ class GraphGeneratorModel {
     }
 
     /**
-     * 🆕 Nettoie TOUS les graphiques existants avant génération
+     * Nettoie TOUS les graphiques existants avant génération
      */
     private function cleanupAllCharts() {
         $this->console_log("=== NETTOYAGE COMPLET DES GRAPHIQUES ===");
@@ -626,7 +623,7 @@ class GraphGeneratorModel {
         $shortMessage = substr($errorMessage, 0, 80);
         imagestring($im, 3, 50, 100, $shortMessage, $black);
 
-        // 🆕 Informations sur l'affichage par semaines
+        // Informations sur l'affichage par semaines
         imagestring($im, 2, 50, 150, 'Mode: Affichage par semaines (moyennes)', $black);
         imagestring($im, 2, 50, 170, 'Selectionnez une autre periode ou verifiez les donnees', $black);
 
